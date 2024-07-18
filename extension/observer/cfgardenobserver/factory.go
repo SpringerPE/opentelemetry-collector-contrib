@@ -36,9 +36,9 @@ func createDefaultConfig() component.Config {
 }
 
 func createExtension(
-	_ context.Context,
-	params extension.Settings,
+	ctx context.Context,
+	settings extension.Settings,
 	cfg component.Config,
 ) (extension.Extension, error) {
-	return newObserver(params, cfg.(*Config))
+	return newObserver(settings, cfg.(*Config), settings.Logger)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/extension/extensiontest"
+	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer"
 )
@@ -17,7 +18,7 @@ import (
 func TestStartAndStopObserver(t *testing.T) {
 	factory := NewFactory()
 	params := extensiontest.NewNopSettings()
-	ext, err := newObserver(params, factory.CreateDefaultConfig().(*Config))
+	ext, err := newObserver(params, factory.CreateDefaultConfig().(*Config), zap.NewNop())
 	require.NoError(t, err)
 	require.NotNil(t, ext)
 
