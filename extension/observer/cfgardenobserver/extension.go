@@ -13,6 +13,9 @@ import (
 	"code.cloudfoundry.org/garden"
 	gardenClient "code.cloudfoundry.org/garden/client"
 	gardenConnection "code.cloudfoundry.org/garden/client/connection"
+	"github.com/cloudfoundry/go-cfclient/v3/client"
+	"github.com/cloudfoundry/go-cfclient/v3/config"
+	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/extension"
@@ -22,10 +25,12 @@ import (
 type cfGardenObserver struct {
 	*observer.EndpointsWatcher
 	cancel context.CancelFunc
-	client garden.Client
 	config *Config
 	ctx    context.Context
 	logger *zap.Logger
+
+	garden garden.Client
+	cf     *client.Client
 }
 
 var _ extension.Extension = (*cfGardenObserver)(nil)
@@ -47,7 +52,17 @@ func (g *cfGardenObserver) Start(ctx context.Context, _ component.Host) error {
 	g.cancel = cancel
 	g.ctx = gCtx
 
-	g.client = gardenClient.New(gardenConnection.New("unix", g.config.Endpoint))
+	g.garden = gardenClient.New(gardenConnection.New("unix", g.config.Endpoint))
+
+	cfg, err := config.New("https://api.t.snpaas.eu", config.UserPassword("admin", "pass"))
+	if err != nil {
+		return err
+	}
+	g.cf, err = client.New(cfg)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -59,7 +74,7 @@ func (g *cfGardenObserver) Shutdown(_ context.Context) error {
 func (g *cfGardenObserver) ListEndpoints() []observer.Endpoint {
 	var endpoints []observer.Endpoint
 
-	containers, err := g.client.Containers(garden.Properties{})
+	containers, err := g.garden.Containers(garden.Properties{})
 	if err != nil {
 		g.logger.Error("could not list containers", zap.Error(err))
 		return endpoints
@@ -95,6 +110,17 @@ func (g *cfGardenObserver) containerEndpoint(c garden.Container) *observer.Endpo
 	port, err := strconv.ParseUint(rawPort, 10, 16)
 	if err != nil {
 		g.logger.Warn("container port is not valid", zap.Error(err))
+		return nil
+	}
+
+	appId, ok := info.Properties["network.app_id"]
+	if !ok {
+		g.logger.Warn("container is not part of an application")
+	}
+	app, err := g.cf.Applications.Get(g.ctx, appId)
+	if err != nil {
+		g.logger.Warn("error fetching application", zap.Error(err))
+		return nil
 	}
 
 	details := &observer.Container{
@@ -103,7 +129,7 @@ func (g *cfGardenObserver) containerEndpoint(c garden.Container) *observer.Endpo
 		Host:        info.ContainerIP,
 		Port:        uint16(port),
 		Transport:   observer.ProtocolTCP,
-		Labels:      g.containerLabels(info),
+		Labels:      g.containerLabels(info, app),
 	}
 
 	endpoint := observer.Endpoint{
@@ -115,14 +141,24 @@ func (g *cfGardenObserver) containerEndpoint(c garden.Container) *observer.Endpo
 	return &endpoint
 }
 
-func (g *cfGardenObserver) containerLabels(info garden.ContainerInfo) map[string]string {
+func (g *cfGardenObserver) containerLabels(info garden.ContainerInfo, app *resource.App) map[string]string {
+	labels := make(map[string]string)
 	tags, err := parseTags(info)
 	if err != nil {
 		g.logger.Warn("not able to parse container tags into labels", zap.Error(err))
 		return nil
 	}
+	for k, v := range tags {
+		labels[k] = v
+	}
 
-	return tags
+	fmt.Printf("\n Printing metadata labels for app: %s\n", app.Name)
+	for k, v := range app.Metadata.Labels {
+		labels[k] = *v
+		fmt.Printf("%s:%s\n", k, *v)
+	}
+
+	return labels
 }
 
 // The info looks like this:
