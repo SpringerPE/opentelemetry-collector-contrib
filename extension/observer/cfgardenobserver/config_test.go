@@ -26,14 +26,14 @@ func TestLoadConfig(t *testing.T) {
 		{
 			id: component.NewID(metadata.Type),
 			expected: &Config{
-				Endpoint:        "unix:///var/vcap/data/garden/garden.sock",
+				Endpoint:        "/var/vcap/data/garden/garden.sock",
 				RefreshInterval: 1 * time.Minute,
 			},
 		},
 		{
 			id: component.NewIDWithName(metadata.Type, "all_settings"),
 			expected: &Config{
-				Endpoint:        "unix:///var/vcap/data/garden/custom.sock",
+				Endpoint:        "/var/vcap/data/garden/custom.sock",
 				RefreshInterval: 20 * time.Second,
 			},
 		},

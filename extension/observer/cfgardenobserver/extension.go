@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"code.cloudfoundry.org/garden"
@@ -20,7 +21,7 @@ import (
 
 type cfGardenObserver struct {
 	*observer.EndpointsWatcher
-	cancel func()
+	cancel context.CancelFunc
 	client garden.Client
 	config *Config
 	ctx    context.Context
@@ -29,14 +30,14 @@ type cfGardenObserver struct {
 
 var _ extension.Extension = (*cfGardenObserver)(nil)
 
-func newObserver(settings extension.Settings, config *Config, logger *zap.Logger) (extension.Extension, error) {
+func newObserver(config *Config, logger *zap.Logger) (extension.Extension, error) {
 	g := &cfGardenObserver{
 		config: config,
 		logger: logger,
 		cancel: func() {
 		},
 	}
-	g.EndpointsWatcher = observer.NewEndpointsWatcher(g, time.Second, settings.Logger)
+	g.EndpointsWatcher = observer.NewEndpointsWatcher(g, time.Second, logger)
 
 	return g, nil
 }
@@ -85,15 +86,24 @@ func (g *cfGardenObserver) containerEndpoint(c garden.Container) *observer.Endpo
 		return nil
 	}
 
-	handle := c.Handle()
+	rawPort, ok := info.Properties["network.ports"]
+	if !ok {
+		g.logger.Warn("could not discover port for container for port")
+		return nil
+	}
+
+	port, err := strconv.ParseUint(rawPort, 10, 16)
+	if err != nil {
+		g.logger.Warn("container port is not valid", zap.Error(err))
+	}
+
 	details := &observer.Container{
-		Name:          handle, // TODO use application name / container id
-		ContainerID:   handle,
-		Host:          info.ContainerIP,
-		Port:          8080,
-		AlternatePort: 61001,
-		Transport:     observer.ProtocolTCP,
-		Labels:        g.containerLabels(info),
+		Name:        c.Handle(),
+		ContainerID: c.Handle(),
+		Host:        info.ContainerIP,
+		Port:        uint16(port),
+		Transport:   observer.ProtocolTCP,
+		Labels:      g.containerLabels(info),
 	}
 
 	endpoint := observer.Endpoint{
