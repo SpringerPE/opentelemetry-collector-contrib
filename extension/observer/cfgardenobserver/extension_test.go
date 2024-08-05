@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"code.cloudfoundry.org/garden"
+	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
@@ -30,8 +31,10 @@ import (
 // 	require.NoError(t, obs.Shutdown(ctx))
 // }
 
+func strPtr(s string) *string { return &s }
+
 func TestContainerLabels(t *testing.T) {
-	input := garden.ContainerInfo{
+	info := garden.ContainerInfo{
 		Properties: map[string]string{
 			"log_config": `
 {
@@ -55,6 +58,14 @@ func TestContainerLabels(t *testing.T) {
             `,
 		},
 	}
+	app := &resource.App{
+		Metadata: &resource.Metadata{
+			Labels: map[string]*string{
+				"key":  strPtr("value"),
+				"key2": strPtr("value2"),
+			},
+		},
+	}
 	expected := map[string]string{
 		"app_id":              "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
 		"app_name":            "example-app",
@@ -67,6 +78,8 @@ func TestContainerLabels(t *testing.T) {
 		"source_id":           "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
 		"space_id":            "99999999-8888-7777-6666-555555555555",
 		"space_name":          "example-space",
+		"key":                 "value",
+		"key2":                "value2",
 	}
 
 	factory := NewFactory()
@@ -77,5 +90,5 @@ func TestContainerLabels(t *testing.T) {
 	obs, ok := ext.(*cfGardenObserver)
 	require.True(t, ok)
 
-	require.Equal(t, expected, obs.containerLabels(input))
+	require.Equal(t, expected, obs.containerLabels(info, app))
 }

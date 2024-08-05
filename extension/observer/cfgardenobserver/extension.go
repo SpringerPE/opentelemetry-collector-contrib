@@ -16,10 +16,11 @@ import (
 	"github.com/cloudfoundry/go-cfclient/v3/client"
 	"github.com/cloudfoundry/go-cfclient/v3/config"
 	"github.com/cloudfoundry/go-cfclient/v3/resource"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/extension"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer"
 )
 
 type cfGardenObserver struct {
@@ -47,6 +48,8 @@ func newObserver(config *Config, logger *zap.Logger) (extension.Extension, error
 	return g, nil
 }
 
+// TODO: make credentials part of the configuration
+// need to find a way to set it up so automatic tests can still run (option of no credentials?)
 func (g *cfGardenObserver) Start(ctx context.Context, _ component.Host) error {
 	gCtx, cancel := context.WithCancel(context.Background())
 	g.cancel = cancel
@@ -152,10 +155,8 @@ func (g *cfGardenObserver) containerLabels(info garden.ContainerInfo, app *resou
 		labels[k] = v
 	}
 
-	fmt.Printf("\n Printing metadata labels for app: %s\n", app.Name)
 	for k, v := range app.Metadata.Labels {
 		labels[k] = *v
-		fmt.Printf("%s:%s\n", k, *v)
 	}
 
 	return labels
