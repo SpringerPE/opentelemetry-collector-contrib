@@ -26,15 +26,76 @@ func TestLoadConfig(t *testing.T) {
 		{
 			id: component.NewID(metadata.Type),
 			expected: &Config{
-				Endpoint:        "/var/vcap/data/garden/garden.sock",
+				Garden: GardenConfig{
+					Endpoint: "/var/vcap/data/garden/garden.sock",
+				},
+				CloudFoundry: CfConfig{
+					Endpoint:     "https://api.cf.mydomain.com",
+					AuthType:     "client_credentials",
+					ClientID:     "myclientid",
+					ClientSecret: "myclientsecret",
+				},
 				RefreshInterval: 1 * time.Minute,
 			},
 		},
 		{
 			id: component.NewIDWithName(metadata.Type, "all_settings"),
 			expected: &Config{
-				Endpoint:        "/var/vcap/data/garden/custom.sock",
+				Garden: GardenConfig{
+					Endpoint: "/var/vcap/data/garden/custom.sock",
+				},
+				CloudFoundry: CfConfig{
+					Endpoint: "https://api.cf.mydomain.com",
+					AuthType: "user_pass",
+					Username: "myuser",
+					Password: "mypass",
+				},
 				RefreshInterval: 20 * time.Second,
+			},
+		},
+		{
+			id: component.NewIDWithName(metadata.Type, "user_pass"),
+			expected: &Config{
+				Garden: GardenConfig{
+					Endpoint: "/var/vcap/data/garden/garden.sock",
+				},
+				RefreshInterval: 1 * time.Minute,
+				CloudFoundry: CfConfig{
+					Endpoint: "https://api.cf.mydomain.com",
+					AuthType: "user_pass",
+					Username: "myuser",
+					Password: "mypass",
+				},
+			},
+		},
+		{
+			id: component.NewIDWithName(metadata.Type, "client_credentials"),
+			expected: &Config{
+				Garden: GardenConfig{
+					Endpoint: "/var/vcap/data/garden/garden.sock",
+				},
+				RefreshInterval: 1 * time.Minute,
+				CloudFoundry: CfConfig{
+					Endpoint:     "https://api.cf.mydomain.com",
+					AuthType:     "client_credentials",
+					ClientID:     "myclientid",
+					ClientSecret: "myclientsecret",
+				},
+			},
+		},
+		{
+			id: component.NewIDWithName(metadata.Type, "token"),
+			expected: &Config{
+				Garden: GardenConfig{
+					Endpoint: "/var/vcap/data/garden/garden.sock",
+				},
+				RefreshInterval: 1 * time.Minute,
+				CloudFoundry: CfConfig{
+					Endpoint:     "https://api.cf.mydomain.com",
+					AuthType:     "token",
+					AccessToken:  "myaccesstoken",
+					RefreshToken: "myrefreshtoken",
+				},
 			},
 		},
 	}
@@ -50,6 +111,76 @@ func TestLoadConfig(t *testing.T) {
 
 			assert.NoError(t, component.ValidateConfig(cfg))
 			assert.Equal(t, tt.expected, cfg)
+		})
+	}
+}
+
+func TestConfig_Validate(t *testing.T) {
+	cases := []struct {
+		reason string
+		cfg    Config
+		msg    string
+	}{
+		{
+			reason: "missing endpoint",
+			cfg:    Config{},
+			msg:    "config.Endpoint must be specified",
+		},
+		{
+			reason: "missing auth_type",
+			cfg: Config{
+				CloudFoundry: CfConfig{
+					Endpoint: "https://api.cf.mydomain.com",
+				},
+			},
+			msg: "config.AuthType must be specified",
+		},
+		{
+			reason: "unknown auth_type",
+			cfg: Config{
+				CloudFoundry: CfConfig{
+					Endpoint: "https://api.cf.mydomain.com",
+					AuthType: "unknown",
+				},
+			},
+			msg: "unknown auth_type: unknown",
+		},
+		{
+			reason: "missing username",
+			cfg: Config{
+				CloudFoundry: CfConfig{
+					Endpoint: "https://api.cf.mydomain.com",
+					AuthType: AuthTypeUserPass,
+				},
+			},
+			msg: fieldError(AuthTypeUserPass, "username").Error(),
+		},
+		{
+			reason: "missing clientID",
+			cfg: Config{
+				CloudFoundry: CfConfig{
+					Endpoint: "https://api.cf.mydomain.com",
+					AuthType: AuthTypeClientCredentials,
+				},
+			},
+			msg: fieldError(AuthTypeClientCredentials, "client_id").Error(),
+		},
+		{
+			reason: "missing AccessToken",
+			cfg: Config{
+				CloudFoundry: CfConfig{
+					Endpoint: "https://api.cf.mydomain.com",
+					AuthType: AuthTypeToken,
+				},
+			},
+			msg: fieldError(AuthTypeToken, "access_token").Error(),
+		},
+	}
+
+	for _, tCase := range cases {
+		t.Run(tCase.reason, func(t *testing.T) {
+			err := tCase.cfg.Validate()
+			require.EqualError(t, err, tCase.msg)
 		})
 	}
 }

@@ -14,7 +14,6 @@ import (
 	gardenClient "code.cloudfoundry.org/garden/client"
 	gardenConnection "code.cloudfoundry.org/garden/client/connection"
 	"github.com/cloudfoundry/go-cfclient/v3/client"
-	"github.com/cloudfoundry/go-cfclient/v3/config"
 	"github.com/cloudfoundry/go-cfclient/v3/resource"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/extension"
@@ -41,35 +40,57 @@ func newObserver(config *Config, logger *zap.Logger) (extension.Extension, error
 		config: config,
 		logger: logger,
 		cancel: func() {
+			// Safe value provided on initialisation
 		},
 	}
 	g.EndpointsWatcher = observer.NewEndpointsWatcher(g, time.Second, logger)
-
 	return g, nil
 }
 
-// TODO: make credentials part of the configuration
-// need to find a way to set it up so automatic tests can still run (option of no credentials?)
+// TODO: implement caching of app information
 func (g *cfGardenObserver) Start(ctx context.Context, _ component.Host) error {
 	gCtx, cancel := context.WithCancel(context.Background())
 	g.cancel = cancel
 	g.ctx = gCtx
 
-	g.garden = gardenClient.New(gardenConnection.New("unix", g.config.Endpoint))
+	g.garden = gardenClient.New(gardenConnection.New("unix", g.config.Garden.Endpoint))
 
-	cfg, err := config.New("https://api.t.snpaas.eu", config.UserPassword("admin", "pass"))
+	var err error
+	g.cf, err = NewCfClient(g.config.CloudFoundry)
 	if err != nil {
 		return err
 	}
-	g.cf, err = client.New(cfg)
-	if err != nil {
-		return err
-	}
+
+	// d.once.Do(
+	// 	func() {
+	// 		go func() {
+	// 			cacheRefreshTicker := time.NewTicker(d.config.CacheSyncInterval)
+	// 			defer cacheRefreshTicker.Stop()
+	//
+	// 			clientCtx, clientCancel := context.WithCancel(d.ctx)
+	//
+	// 			go d.dClient.ContainerEventLoop(clientCtx)
+	//
+	// 			for {
+	// 				select {
+	// 				case <-d.ctx.Done():
+	// 					clientCancel()
+	// 					return
+	// 				case <-cacheRefreshTicker.C:
+	// 					err = d.dClient.LoadContainerList(clientCtx)
+	// 					if err != nil {
+	// 						d.logger.Error("Could not sync container cache", zap.Error(err))
+	// 					}
+	// 				}
+	// 			}
+	// 		}()
+	// 	},
+	// )
 
 	return nil
 }
 
-func (g *cfGardenObserver) Shutdown(_ context.Context) error {
+func (g *cfGardenObserver) Shutdown(ctx context.Context) error {
 	g.cancel()
 	return nil
 }

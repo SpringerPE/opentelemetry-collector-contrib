@@ -31,7 +31,9 @@ func NewFactory() extension.Factory {
 func createDefaultConfig() component.Config {
 	return &Config{
 		RefreshInterval: defaultCollectionInterval,
-		Endpoint:        defaultEndpoint,
+		Garden: GardenConfig{
+			Endpoint: defaultEndpoint,
+		},
 	}
 }
 
