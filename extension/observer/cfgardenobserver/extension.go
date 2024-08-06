@@ -6,9 +6,10 @@ package cfgardenobserver // import "github.com/open-telemetry/opentelemetry-coll
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
-	"time"
+	"sync"
 
 	"code.cloudfoundry.org/garden"
 	gardenClient "code.cloudfoundry.org/garden/client"
@@ -28,9 +29,13 @@ type cfGardenObserver struct {
 	config *Config
 	ctx    context.Context
 	logger *zap.Logger
+	once   *sync.Once
 
 	garden garden.Client
 	cf     *client.Client
+
+	containerMu sync.RWMutex
+	containers  []garden.ContainerInfo
 }
 
 var _ extension.Extension = (*cfGardenObserver)(nil)
@@ -39,15 +44,17 @@ func newObserver(config *Config, logger *zap.Logger) (extension.Extension, error
 	g := &cfGardenObserver{
 		config: config,
 		logger: logger,
+		once:   &sync.Once{},
 		cancel: func() {
 			// Safe value provided on initialisation
 		},
 	}
-	g.EndpointsWatcher = observer.NewEndpointsWatcher(g, time.Second, logger)
+	g.EndpointsWatcher = observer.NewEndpointsWatcher(g, config.RefreshInterval, logger)
 	return g, nil
 }
 
-// TODO: implement caching of app information
+// TODO: implement caching, cache container list in ListEndpoints, cache app info on a separate goroutine
+// TODO: deal with several ports, an option is making an endpoint per port, like the dockerobserver does
 func (g *cfGardenObserver) Start(ctx context.Context, _ component.Host) error {
 	gCtx, cancel := context.WithCancel(context.Background())
 	g.cancel = cancel
@@ -61,7 +68,7 @@ func (g *cfGardenObserver) Start(ctx context.Context, _ component.Host) error {
 		return err
 	}
 
-	// d.once.Do(
+	// g.once.Do(
 	// 	func() {
 	// 		go func() {
 	// 			cacheRefreshTicker := time.NewTicker(d.config.CacheSyncInterval)
@@ -96,6 +103,7 @@ func (g *cfGardenObserver) Shutdown(ctx context.Context) error {
 }
 
 func (g *cfGardenObserver) ListEndpoints() []observer.Endpoint {
+	g.logger.Info("STARTING LIST ENDPOINTS")
 	var endpoints []observer.Endpoint
 
 	containers, err := g.garden.Containers(garden.Properties{})
@@ -103,66 +111,80 @@ func (g *cfGardenObserver) ListEndpoints() []observer.Endpoint {
 		g.logger.Error("could not list containers", zap.Error(err))
 		return endpoints
 	}
+	g.logger.Info(fmt.Sprintf("Count from calling garden.Containers: %d", len(containers)))
+	g.logger.Info(fmt.Sprintf("Cache size: %d", len(g.containers)))
 
+	infos := []garden.ContainerInfo{}
 	for _, c := range containers {
-		endpoint := g.containerEndpoint(c)
-		if endpoint != nil {
-			endpoints = append(endpoints, *endpoint)
+		info, err := c.Info()
+		if err != nil {
+			g.logger.Error("could not get info for container", zap.String("handle", c.Handle()), zap.Error(err))
+			continue
 		}
+
+		if info.State != "active" {
+			continue
+		}
+
+		endpoint, err := g.containerEndpoint(c.Handle(), info)
+		if err != nil {
+			g.logger.Error("error creating container endpoint", zap.Error(err))
+			continue
+		}
+		endpoints = append(endpoints, *endpoint)
+		infos = append(infos, info)
 	}
 
+	go g.updateContainerCache(infos)
+	g.logger.Info(fmt.Sprintf("Count of endpoints: %d", len(endpoints)))
+	g.logger.Info("FINISHED LIST ENDPOINTS")
 	return endpoints
 }
 
-func (g *cfGardenObserver) containerEndpoint(c garden.Container) *observer.Endpoint {
-	info, err := c.Info()
-	if err != nil {
-		g.logger.Error("could not get info for container", zap.Error(err))
-		return nil
-	}
+func (g *cfGardenObserver) updateContainerCache(infos []garden.ContainerInfo) {
+	g.containerMu.Lock()
+	defer g.containerMu.Unlock()
+	g.containers = infos
+}
 
-	if info.State != "active" {
-		return nil
-	}
-
+func (g *cfGardenObserver) containerEndpoint(handle string, info garden.ContainerInfo) (*observer.Endpoint, error) {
 	rawPort, ok := info.Properties["network.ports"]
 	if !ok {
-		g.logger.Warn("could not discover port for container for port")
-		return nil
+		return nil, errors.New("could not discover port for container")
 	}
 
 	port, err := strconv.ParseUint(rawPort, 10, 16)
 	if err != nil {
-		g.logger.Warn("container port is not valid", zap.Error(err))
-		return nil
+		return nil, fmt.Errorf("container port is not valid: %v", err)
 	}
 
 	appId, ok := info.Properties["network.app_id"]
 	if !ok {
 		g.logger.Warn("container is not part of an application")
 	}
+
 	app, err := g.cf.Applications.Get(g.ctx, appId)
 	if err != nil {
 		g.logger.Warn("error fetching application", zap.Error(err))
-		return nil
+		return nil, fmt.Errorf("error fetching application: %v", err)
 	}
 
 	details := &observer.Container{
-		Name:        c.Handle(),
-		ContainerID: c.Handle(),
+		Name:        handle,
+		ContainerID: handle,
 		Host:        info.ContainerIP,
 		Port:        uint16(port),
 		Transport:   observer.ProtocolTCP,
 		Labels:      g.containerLabels(info, app),
 	}
 
-	endpoint := observer.Endpoint{
+	endpoint := &observer.Endpoint{
 		ID:      observer.EndpointID(details.ContainerID),
 		Target:  fmt.Sprintf("%s:%d", details.Host, details.Port),
 		Details: details,
 	}
 
-	return &endpoint
+	return endpoint, nil
 }
 
 func (g *cfGardenObserver) containerLabels(info garden.ContainerInfo, app *resource.App) map[string]string {
