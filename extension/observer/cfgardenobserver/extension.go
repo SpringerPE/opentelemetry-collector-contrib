@@ -6,9 +6,9 @@ package cfgardenobserver // import "github.com/open-telemetry/opentelemetry-coll
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"code.cloudfoundry.org/garden"
@@ -126,12 +126,7 @@ func (g *cfGardenObserver) ListEndpoints() []observer.Endpoint {
 			continue
 		}
 
-		endpoint, err := g.containerEndpoint(c.Handle(), info)
-		if err != nil {
-			g.logger.Error("error creating container endpoint", zap.Error(err))
-			continue
-		}
-		endpoints = append(endpoints, *endpoint)
+		endpoints = append(endpoints, g.containerEndpoints(c.Handle(), info)...)
 		infos = append(infos, info)
 	}
 
@@ -147,44 +142,56 @@ func (g *cfGardenObserver) updateContainerCache(infos []garden.ContainerInfo) {
 	g.containers = infos
 }
 
-func (g *cfGardenObserver) containerEndpoint(handle string, info garden.ContainerInfo) (*observer.Endpoint, error) {
-	rawPort, ok := info.Properties["network.ports"]
+// containerEndpoints generates a list of observer.Endpoint for a container,
+// this is because a container might have more than one exposed ports
+func (g *cfGardenObserver) containerEndpoints(handle string, info garden.ContainerInfo) []observer.Endpoint {
+	portsProp, ok := info.Properties["network.ports"]
 	if !ok {
-		return nil, errors.New("could not discover port for container")
+		g.logger.Error("could not discover container ports")
+		return nil
 	}
-
-	port, err := strconv.ParseUint(rawPort, 10, 16)
-	if err != nil {
-		return nil, fmt.Errorf("container port is not valid: %v", err)
-	}
+	ports := strings.Split(portsProp, ",")
 
 	appId, ok := info.Properties["network.app_id"]
 	if !ok {
-		g.logger.Warn("container is not part of an application")
+		g.logger.Error("container is not part of an application")
+		return nil
 	}
 
 	app, err := g.cf.Applications.Get(g.ctx, appId)
 	if err != nil {
 		g.logger.Warn("error fetching application", zap.Error(err))
-		return nil, fmt.Errorf("error fetching application: %v", err)
+		return nil
 	}
 
-	details := &observer.Container{
-		Name:        handle,
-		ContainerID: handle,
-		Host:        info.ContainerIP,
-		Port:        uint16(port),
-		Transport:   observer.ProtocolTCP,
-		Labels:      g.containerLabels(info, app),
+	endpoints := []observer.Endpoint{}
+	if len(ports) > 1 {
+		fmt.Println("got more than 1 port: ", portsProp)
 	}
+	for _, port := range ports {
+		port, err := strconv.ParseUint(port, 10, 16)
+		if err != nil {
+			g.logger.Error("container port is not valid", zap.Error(err))
+			continue
+		}
 
-	endpoint := &observer.Endpoint{
-		ID:      observer.EndpointID(details.ContainerID),
-		Target:  fmt.Sprintf("%s:%d", details.Host, details.Port),
-		Details: details,
+		details := &observer.Container{
+			Name:        handle,
+			ContainerID: handle,
+			Host:        info.ContainerIP,
+			Port:        uint16(port),
+			Transport:   observer.ProtocolTCP,
+			Labels:      g.containerLabels(info, app),
+		}
+
+		endpoint := observer.Endpoint{
+			ID:      observer.EndpointID(fmt.Sprintf("%s:%d", details.ContainerID, details.Port)),
+			Target:  fmt.Sprintf("%s:%d", details.Host, details.Port),
+			Details: details,
+		}
+		endpoints = append(endpoints, endpoint)
 	}
-
-	return endpoint, nil
+	return endpoints
 }
 
 func (g *cfGardenObserver) containerLabels(info garden.ContainerInfo, app *resource.App) map[string]string {
