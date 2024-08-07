@@ -5,6 +5,7 @@ cfgarden_observer:
     client_id: myclientid
     client_secret: myclientsecret
 cfgarden_observer/all_settings:
+  cache_sync_interval: 5s
   refresh_interval: 20s
   garden:
     endpoint: /var/vcap/data/garden/custom.sock 

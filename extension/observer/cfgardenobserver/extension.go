@@ -6,10 +6,12 @@ package cfgardenobserver // import "github.com/open-telemetry/opentelemetry-coll
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"code.cloudfoundry.org/garden"
 	gardenClient "code.cloudfoundry.org/garden/client"
@@ -35,7 +37,10 @@ type cfGardenObserver struct {
 	cf     *client.Client
 
 	containerMu sync.RWMutex
-	containers  []garden.ContainerInfo
+	containers  map[string]garden.ContainerInfo
+
+	appMu sync.RWMutex
+	apps  map[string]*resource.App
 }
 
 var _ extension.Extension = (*cfGardenObserver)(nil)
@@ -53,8 +58,70 @@ func newObserver(config *Config, logger *zap.Logger) (extension.Extension, error
 	return g, nil
 }
 
-// TODO: implement caching, cache container list in ListEndpoints, cache app info on a separate goroutine
-// TODO: deal with several ports, an option is making an endpoint per port, like the dockerobserver does
+func (g *cfGardenObserver) updateContainerCache(infos map[string]garden.ContainerInfo) {
+	g.containerMu.Lock()
+	defer g.containerMu.Unlock()
+	g.containers = infos
+}
+
+func InfoToAppID(info garden.ContainerInfo) (string, error) {
+	id, ok := info.Properties["network.app_id"]
+	if !ok {
+		return "", errors.New("could not find app_id")
+	}
+	return id, nil
+}
+
+func (g *cfGardenObserver) SyncApps() error {
+	g.containerMu.RLock()
+	containers := g.containers
+	g.containerMu.RUnlock()
+
+	g.appMu.Lock()
+	defer g.appMu.Unlock()
+	g.apps = make(map[string]*resource.App)
+	for _, info := range containers {
+		appID, err := InfoToAppID(info)
+		if err != nil {
+			return err
+		}
+
+		if _, ok := g.apps[appID]; ok {
+			continue
+		}
+
+		app, err := g.cf.Applications.Get(g.ctx, appID)
+		if err != nil {
+			return fmt.Errorf("error fetching application: %v", err)
+		}
+		g.apps[appID] = app
+	}
+
+	return nil
+}
+
+func (g *cfGardenObserver) App(info garden.ContainerInfo) (*resource.App, error) {
+	appID, err := InfoToAppID(info)
+	if err != nil {
+		return nil, err
+	}
+
+	g.appMu.Lock()
+	defer g.appMu.Unlock()
+	app, ok := g.apps[appID]
+	if ok {
+		return app, nil
+	}
+
+	app, err = g.cf.Applications.Get(g.ctx, appID)
+	if err != nil {
+		return nil, err
+	}
+	g.apps[appID] = app
+
+	return app, nil
+}
+
 func (g *cfGardenObserver) Start(ctx context.Context, _ component.Host) error {
 	gCtx, cancel := context.WithCancel(context.Background())
 	g.cancel = cancel
@@ -68,31 +135,30 @@ func (g *cfGardenObserver) Start(ctx context.Context, _ component.Host) error {
 		return err
 	}
 
-	// g.once.Do(
-	// 	func() {
-	// 		go func() {
-	// 			cacheRefreshTicker := time.NewTicker(d.config.CacheSyncInterval)
-	// 			defer cacheRefreshTicker.Stop()
-	//
-	// 			clientCtx, clientCancel := context.WithCancel(d.ctx)
-	//
-	// 			go d.dClient.ContainerEventLoop(clientCtx)
-	//
-	// 			for {
-	// 				select {
-	// 				case <-d.ctx.Done():
-	// 					clientCancel()
-	// 					return
-	// 				case <-cacheRefreshTicker.C:
-	// 					err = d.dClient.LoadContainerList(clientCtx)
-	// 					if err != nil {
-	// 						d.logger.Error("Could not sync container cache", zap.Error(err))
-	// 					}
-	// 				}
-	// 			}
-	// 		}()
-	// 	},
-	// )
+	if err = g.SyncApps(); err != nil {
+		return err
+	}
+
+	g.once.Do(
+		func() {
+			go func() {
+				cacheRefreshTicker := time.NewTicker(g.config.CacheSyncInterval)
+				defer cacheRefreshTicker.Stop()
+
+				for {
+					select {
+					case <-g.ctx.Done():
+						return
+					case <-cacheRefreshTicker.C:
+						err = g.SyncApps()
+						if err != nil {
+							g.logger.Error("could not sync app cache", zap.Error(err))
+						}
+					}
+				}
+			}()
+		},
+	)
 
 	return nil
 }
@@ -103,7 +169,6 @@ func (g *cfGardenObserver) Shutdown(ctx context.Context) error {
 }
 
 func (g *cfGardenObserver) ListEndpoints() []observer.Endpoint {
-	g.logger.Info("STARTING LIST ENDPOINTS")
 	var endpoints []observer.Endpoint
 
 	containers, err := g.garden.Containers(garden.Properties{})
@@ -111,14 +176,12 @@ func (g *cfGardenObserver) ListEndpoints() []observer.Endpoint {
 		g.logger.Error("could not list containers", zap.Error(err))
 		return endpoints
 	}
-	g.logger.Info(fmt.Sprintf("Count from calling garden.Containers: %d", len(containers)))
-	g.logger.Info(fmt.Sprintf("Cache size: %d", len(g.containers)))
 
-	infos := []garden.ContainerInfo{}
+	infos := make(map[string]garden.ContainerInfo)
 	for _, c := range containers {
 		info, err := c.Info()
 		if err != nil {
-			g.logger.Error("could not get info for container", zap.String("handle", c.Handle()), zap.Error(err))
+			g.logger.Error("error getting container info", zap.String("handle", c.Handle()), zap.Error(err))
 			continue
 		}
 
@@ -127,19 +190,11 @@ func (g *cfGardenObserver) ListEndpoints() []observer.Endpoint {
 		}
 
 		endpoints = append(endpoints, g.containerEndpoints(c.Handle(), info)...)
-		infos = append(infos, info)
+		infos[c.Handle()] = info
 	}
 
 	go g.updateContainerCache(infos)
-	g.logger.Info(fmt.Sprintf("Count of endpoints: %d", len(endpoints)))
-	g.logger.Info("FINISHED LIST ENDPOINTS")
 	return endpoints
-}
-
-func (g *cfGardenObserver) updateContainerCache(infos []garden.ContainerInfo) {
-	g.containerMu.Lock()
-	defer g.containerMu.Unlock()
-	g.containers = infos
 }
 
 // containerEndpoints generates a list of observer.Endpoint for a container,
@@ -152,22 +207,13 @@ func (g *cfGardenObserver) containerEndpoints(handle string, info garden.Contain
 	}
 	ports := strings.Split(portsProp, ",")
 
-	appId, ok := info.Properties["network.app_id"]
-	if !ok {
-		g.logger.Error("container is not part of an application")
-		return nil
-	}
-
-	app, err := g.cf.Applications.Get(g.ctx, appId)
+	app, err := g.App(info)
 	if err != nil {
-		g.logger.Warn("error fetching application", zap.Error(err))
+		g.logger.Error("error fetching Application", zap.Error(err))
 		return nil
 	}
 
 	endpoints := []observer.Endpoint{}
-	if len(ports) > 1 {
-		fmt.Println("got more than 1 port: ", portsProp)
-	}
 	for _, port := range ports {
 		port, err := strconv.ParseUint(port, 10, 16)
 		if err != nil {

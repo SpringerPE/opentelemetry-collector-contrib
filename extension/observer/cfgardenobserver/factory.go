@@ -15,6 +15,7 @@ import (
 
 const (
 	defaultCollectionInterval = 1 * time.Minute
+	defaultCacheSyncInterval  = 5 * time.Minute
 	defaultEndpoint           = "/var/vcap/data/garden/garden.sock"
 )
 
@@ -30,7 +31,8 @@ func NewFactory() extension.Factory {
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		RefreshInterval: defaultCollectionInterval,
+		RefreshInterval:   defaultCollectionInterval,
+		CacheSyncInterval: defaultCacheSyncInterval,
 		Garden: GardenConfig{
 			Endpoint: defaultEndpoint,
 		},

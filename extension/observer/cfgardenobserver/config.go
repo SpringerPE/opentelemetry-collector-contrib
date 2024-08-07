@@ -20,6 +20,11 @@ type Config struct {
 	// RefreshInterval determines the frequency at which the observer
 	// needs to poll for collecting information about new processes.
 	RefreshInterval time.Duration `mapstructure:"refresh_interval"`
+
+	// The time to wait before resyncing app information on cached containers
+	// using the CloudFoundry API. Example: cache_sync_interval: "20m"
+	// Default: "5m"
+	CacheSyncInterval time.Duration `mapstructure:"cache_sync_interval"`
 }
 
 // Validate overrides the embedded noop validation so that load config can trigger

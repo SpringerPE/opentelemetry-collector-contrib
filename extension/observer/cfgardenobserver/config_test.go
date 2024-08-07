@@ -26,6 +26,8 @@ func TestLoadConfig(t *testing.T) {
 		{
 			id: component.NewID(metadata.Type),
 			expected: &Config{
+				RefreshInterval:   1 * time.Minute,
+				CacheSyncInterval: 5 * time.Minute,
 				Garden: GardenConfig{
 					Endpoint: "/var/vcap/data/garden/garden.sock",
 				},
@@ -35,12 +37,13 @@ func TestLoadConfig(t *testing.T) {
 					ClientID:     "myclientid",
 					ClientSecret: "myclientsecret",
 				},
-				RefreshInterval: 1 * time.Minute,
 			},
 		},
 		{
 			id: component.NewIDWithName(metadata.Type, "all_settings"),
 			expected: &Config{
+				RefreshInterval:   20 * time.Second,
+				CacheSyncInterval: 5 * time.Second,
 				Garden: GardenConfig{
 					Endpoint: "/var/vcap/data/garden/custom.sock",
 				},
@@ -50,7 +53,6 @@ func TestLoadConfig(t *testing.T) {
 					Username: "myuser",
 					Password: "mypass",
 				},
-				RefreshInterval: 20 * time.Second,
 			},
 		},
 		{
@@ -59,7 +61,8 @@ func TestLoadConfig(t *testing.T) {
 				Garden: GardenConfig{
 					Endpoint: "/var/vcap/data/garden/garden.sock",
 				},
-				RefreshInterval: 1 * time.Minute,
+				RefreshInterval:   1 * time.Minute,
+				CacheSyncInterval: 5 * time.Minute,
 				CloudFoundry: CfConfig{
 					Endpoint: "https://api.cf.mydomain.com",
 					AuthType: "user_pass",
@@ -74,7 +77,8 @@ func TestLoadConfig(t *testing.T) {
 				Garden: GardenConfig{
 					Endpoint: "/var/vcap/data/garden/garden.sock",
 				},
-				RefreshInterval: 1 * time.Minute,
+				RefreshInterval:   1 * time.Minute,
+				CacheSyncInterval: 5 * time.Minute,
 				CloudFoundry: CfConfig{
 					Endpoint:     "https://api.cf.mydomain.com",
 					AuthType:     "client_credentials",
@@ -89,7 +93,8 @@ func TestLoadConfig(t *testing.T) {
 				Garden: GardenConfig{
 					Endpoint: "/var/vcap/data/garden/garden.sock",
 				},
-				RefreshInterval: 1 * time.Minute,
+				RefreshInterval:   1 * time.Minute,
+				CacheSyncInterval: 5 * time.Minute,
 				CloudFoundry: CfConfig{
 					Endpoint:     "https://api.cf.mydomain.com",
 					AuthType:     "token",

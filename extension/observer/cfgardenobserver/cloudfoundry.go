@@ -5,14 +5,7 @@ import (
 
 	"github.com/cloudfoundry/go-cfclient/v3/client"
 	"github.com/cloudfoundry/go-cfclient/v3/config"
-	"github.com/cloudfoundry/go-cfclient/v3/resource"
 )
-
-type CfClient struct {
-	*client.Client
-
-	appCache []*resource.App
-}
 
 func NewCfClient(cfConfig CfConfig) (*client.Client, error) {
 	var cfg *config.Config
