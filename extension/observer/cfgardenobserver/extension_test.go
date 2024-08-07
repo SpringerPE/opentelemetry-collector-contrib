@@ -4,34 +4,82 @@
 package cfgardenobserver
 
 import (
+	"fmt"
 	"testing"
 
 	"code.cloudfoundry.org/garden"
 	"github.com/cloudfoundry/go-cfclient/v3/resource"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
-// func TestStartAndStopObserver(t *testing.T) {
-// 	factory := NewFactory()
-// 	ext, err := newObserver(factory.CreateDefaultConfig().(*Config), zap.NewNop())
-// 	require.NoError(t, err)
-// 	require.NotNil(t, ext)
-//
-// 	obs, ok := ext.(*cfGardenObserver)
-// 	require.True(t, ok)
-//
-// 	ctx := context.Background()
-// 	require.NoError(t, obs.Start(ctx, componenttest.NewNopHost()))
-//
-// 	expected := obs.ListEndpoints()
-// 	want := []observer.Endpoint{}
-// 	require.Equal(t, want, expected)
-//
-// 	require.NoError(t, obs.Shutdown(ctx))
-// }
-
 func strPtr(s string) *string { return &s }
+
+func TestContainerEndpointsOnePort(t *testing.T) {
+	handle := "14d91d46-6ebd-43a1-8e20-316d8e6a92a4"
+	ip := "1.2.3.4"
+	port := 8080
+	appId := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	logConfig := fmt.Sprintf(`
+{
+    "guid": "%s",
+    "index": 0,
+    "source_name": "CELL",
+    "tags": {
+        "app_id": "%s",
+        "app_name": "myapp"
+    }
+}
+            `, handle, appId)
+
+	input := garden.ContainerInfo{
+		ContainerIP: ip,
+		Properties: map[string]string{
+			"log_config":     logConfig,
+			"network.ports":  "8080",
+			"network.app_id": appId,
+		},
+	}
+
+	expected := []observer.Endpoint{
+		{
+			ID:     observer.EndpointID(fmt.Sprintf("%s:%d", handle, 8080)),
+			Target: fmt.Sprintf("%s:%d", ip, 8080),
+			Details: &observer.Container{
+				Name:        handle,
+				ContainerID: handle,
+				Host:        ip,
+				Port:        uint16(port),
+				Transport:   observer.ProtocolTCP,
+				Labels: map[string]string{
+					"app_id":     "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+					"app_name":   "myapp",
+					"app_label":  "app_value",
+					"app_label2": "app_value2",
+				},
+			},
+		},
+	}
+
+	factory := NewFactory()
+	ext, err := newObserver(factory.CreateDefaultConfig().(*Config), zap.NewNop())
+	require.NoError(t, err)
+	require.NotNil(t, ext)
+
+	obs, ok := ext.(*cfGardenObserver)
+	require.True(t, ok)
+	obs.apps[appId] = &resource.App{
+		Metadata: &resource.Metadata{
+			Labels: map[string]*string{
+				"app_label":  strPtr("app_value"),
+				"app_label2": strPtr("app_value2"),
+			},
+		},
+	}
+
+	require.Equal(t, expected, obs.containerEndpoints(handle, input))
+}
 
 func TestContainerLabels(t *testing.T) {
 	info := garden.ContainerInfo{

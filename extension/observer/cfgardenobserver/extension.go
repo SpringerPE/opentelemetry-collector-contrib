@@ -47,9 +47,11 @@ var _ extension.Extension = (*cfGardenObserver)(nil)
 
 func newObserver(config *Config, logger *zap.Logger) (extension.Extension, error) {
 	g := &cfGardenObserver{
-		config: config,
-		logger: logger,
-		once:   &sync.Once{},
+		config:     config,
+		logger:     logger,
+		once:       &sync.Once{},
+		containers: make(map[string]garden.ContainerInfo),
+		apps:       make(map[string]*resource.App),
 		cancel: func() {
 			// Safe value provided on initialisation
 		},
@@ -210,6 +212,7 @@ func (g *cfGardenObserver) containerEndpoints(handle string, info garden.Contain
 	app, err := g.App(info)
 	if err != nil {
 		g.logger.Error("error fetching Application", zap.Error(err))
+		fmt.Println("ERROR")
 		return nil
 	}
 
@@ -244,6 +247,7 @@ func (g *cfGardenObserver) containerLabels(info garden.ContainerInfo, app *resou
 	labels := make(map[string]string)
 	tags, err := parseTags(info)
 	if err != nil {
+		fmt.Println(err)
 		g.logger.Warn("not able to parse container tags into labels", zap.Error(err))
 		return nil
 	}
