@@ -262,30 +262,29 @@ func (g *cfGardenObserver) containerLabels(info garden.ContainerInfo, app *resou
 	return labels
 }
 
-// The info looks like this:
+// The info.Properties contains a key called "log_config", which
+// has contents that look like the following JSON endoded string:
 //
-//		{
-//		  "log_config": {
-//		    "guid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-//		    "index": 0,
-//		    "source_name": "CELL",
-//		    "tags": {
-//		      "app_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-//		      "app_name": "example-app",
-//		      "instance_id": "0",
-//		      "organization_id": "11111111-2222-3333-4444-555555555555",
-//		      "organization_name": "example-org",
-//		      "process_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-//		      "process_instance_id": "abcdef12-3456-7890-abcd-ef1234567890",
-//		      "process_type": "web",
-//		      "source_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-//		      "space_id": "99999999-8888-7777-6666-555555555555",
-//		      "space_name": "example-space"
-//		    }
-//		  }
-//		}
+//	{
+//	  "guid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+//	  "index": 0,
+//	  "source_name": "CELL",
+//	  "tags": {
+//	    "app_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+//	    "app_name": "example-app",
+//	    "instance_id": "0",
+//	    "organization_id": "11111111-2222-3333-4444-555555555555",
+//	    "organization_name": "example-org",
+//	    "process_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+//	    "process_instance_id": "abcdef12-3456-7890-abcd-ef1234567890",
+//	    "process_type": "web",
+//	    "source_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+//	    "space_id": "99999999-8888-7777-6666-555555555555",
+//	    "space_name": "example-space"
+//	  }
+//	}
 //
-//	 We parse only the tags into a map, to be used as labels
+// We parse only the tags into a map, to be used as labels
 func parseTags(info garden.ContainerInfo) (map[string]string, error) {
 	logConfig, ok := info.Properties["log_config"]
 	if !ok {
