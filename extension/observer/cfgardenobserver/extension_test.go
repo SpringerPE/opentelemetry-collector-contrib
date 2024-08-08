@@ -16,33 +16,10 @@ import (
 
 func strPtr(s string) *string { return &s }
 
-const (
-	testHandle = "14d91d46-6ebd-43a1-8e20-316d8e6a92a4"
-	testIp     = "1.2.3.4"
-	testAppID  = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-)
-
-func endpointFromPort(port uint16) observer.Endpoint {
-	return observer.Endpoint{
-		ID:     observer.EndpointID(fmt.Sprintf("%s:%d", testHandle, port)),
-		Target: fmt.Sprintf("%s:%d", testIp, port),
-		Details: &observer.Container{
-			Name:        testHandle,
-			ContainerID: testHandle,
-			Host:        testIp,
-			Port:        port,
-			Transport:   observer.ProtocolTCP,
-			Labels: map[string]string{
-				"app_id":     "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-				"app_name":   "myapp",
-				"app_label":  "app_value",
-				"app_label2": "app_value2",
-			},
-		},
-	}
-}
-
 func TestContainerEndpoints(t *testing.T) {
+	handle := "14d91d46-6ebd-43a1-8e20-316d8e6a92a4"
+	ip := "1.2.3.4"
+	appID := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 	logConfig := fmt.Sprintf(`
 {
     "guid": "%s",
@@ -53,38 +30,88 @@ func TestContainerEndpoints(t *testing.T) {
         "app_name": "myapp"
     }
 }
-            `, testHandle, testAppID)
+            `, handle, appID)
 
 	tests := []struct {
+		name     string
 		input    garden.ContainerInfo
 		expected []observer.Endpoint
 	}{
 		{
+			name: "single port",
 			input: garden.ContainerInfo{
-				ContainerIP: testIp,
+				ContainerIP: ip,
 				Properties: map[string]string{
 					"log_config":     logConfig,
 					"network.ports":  "8080",
-					"network.app_id": testAppID,
+					"network.app_id": appID,
 				},
 			},
 			expected: []observer.Endpoint{
-				endpointFromPort(8080),
+				{
+					ID:     observer.EndpointID(fmt.Sprintf("%s:%d", handle, 8080)),
+					Target: fmt.Sprintf("%s:%d", ip, 8080),
+					Details: &observer.Container{
+						Name:        handle,
+						ContainerID: handle,
+						Host:        ip,
+						Port:        uint16(8080),
+						Transport:   observer.ProtocolTCP,
+						Labels: map[string]string{
+							"app_id":     appID,
+							"app_name":   "myapp",
+							"app_label":  "app_value",
+							"app_label2": "app_value2",
+						},
+					},
+				},
 			},
 		},
 		{
+			name: "multiple ports",
 			input: garden.ContainerInfo{
-				ContainerIP: testIp,
+				ContainerIP: ip,
 				Properties: map[string]string{
 					"log_config":     logConfig,
-					"network.ports":  "8080,1234,9999",
-					"network.app_id": testAppID,
+					"network.ports":  "8080,9999",
+					"network.app_id": appID,
 				},
 			},
 			expected: []observer.Endpoint{
-				endpointFromPort(8080),
-				endpointFromPort(1234),
-				endpointFromPort(9999),
+				{
+					ID:     observer.EndpointID(fmt.Sprintf("%s:%d", handle, 8080)),
+					Target: fmt.Sprintf("%s:%d", ip, 8080),
+					Details: &observer.Container{
+						Name:        handle,
+						ContainerID: handle,
+						Host:        ip,
+						Port:        uint16(8080),
+						Transport:   observer.ProtocolTCP,
+						Labels: map[string]string{
+							"app_id":     appID,
+							"app_name":   "myapp",
+							"app_label":  "app_value",
+							"app_label2": "app_value2",
+						},
+					},
+				},
+				{
+					ID:     observer.EndpointID(fmt.Sprintf("%s:%d", handle, 9999)),
+					Target: fmt.Sprintf("%s:%d", ip, 9999),
+					Details: &observer.Container{
+						Name:        handle,
+						ContainerID: handle,
+						Host:        ip,
+						Port:        uint16(9999),
+						Transport:   observer.ProtocolTCP,
+						Labels: map[string]string{
+							"app_id":     appID,
+							"app_name":   "myapp",
+							"app_label":  "app_value",
+							"app_label2": "app_value2",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -97,7 +124,7 @@ func TestContainerEndpoints(t *testing.T) {
 
 		obs, ok := ext.(*cfGardenObserver)
 		require.True(t, ok)
-		obs.apps[testAppID] = &resource.App{
+		obs.apps[appID] = &resource.App{
 			Metadata: &resource.Metadata{
 				Labels: map[string]*string{
 					"app_label":  strPtr("app_value"),
@@ -106,7 +133,7 @@ func TestContainerEndpoints(t *testing.T) {
 			},
 		}
 
-		require.Equal(t, tt.expected, obs.containerEndpoints(testHandle, tt.input))
+		require.Equal(t, tt.expected, obs.containerEndpoints(handle, tt.input))
 	}
 }
 
