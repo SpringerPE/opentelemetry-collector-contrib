@@ -16,11 +16,33 @@ import (
 
 func strPtr(s string) *string { return &s }
 
-func TestContainerEndpointsOnePort(t *testing.T) {
-	handle := "14d91d46-6ebd-43a1-8e20-316d8e6a92a4"
-	ip := "1.2.3.4"
-	port := 8080
-	appId := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+const (
+	testHandle = "14d91d46-6ebd-43a1-8e20-316d8e6a92a4"
+	testIp     = "1.2.3.4"
+	testAppID  = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+)
+
+func endpointFromPort(port uint16) observer.Endpoint {
+	return observer.Endpoint{
+		ID:     observer.EndpointID(fmt.Sprintf("%s:%d", testHandle, port)),
+		Target: fmt.Sprintf("%s:%d", testIp, port),
+		Details: &observer.Container{
+			Name:        testHandle,
+			ContainerID: testHandle,
+			Host:        testIp,
+			Port:        port,
+			Transport:   observer.ProtocolTCP,
+			Labels: map[string]string{
+				"app_id":     "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+				"app_name":   "myapp",
+				"app_label":  "app_value",
+				"app_label2": "app_value2",
+			},
+		},
+	}
+}
+
+func TestContainerEndpoints(t *testing.T) {
 	logConfig := fmt.Sprintf(`
 {
     "guid": "%s",
@@ -31,54 +53,61 @@ func TestContainerEndpointsOnePort(t *testing.T) {
         "app_name": "myapp"
     }
 }
-            `, handle, appId)
+            `, testHandle, testAppID)
 
-	input := garden.ContainerInfo{
-		ContainerIP: ip,
-		Properties: map[string]string{
-			"log_config":     logConfig,
-			"network.ports":  "8080",
-			"network.app_id": appId,
-		},
-	}
-
-	expected := []observer.Endpoint{
+	tests := []struct {
+		input    garden.ContainerInfo
+		expected []observer.Endpoint
+	}{
 		{
-			ID:     observer.EndpointID(fmt.Sprintf("%s:%d", handle, 8080)),
-			Target: fmt.Sprintf("%s:%d", ip, 8080),
-			Details: &observer.Container{
-				Name:        handle,
-				ContainerID: handle,
-				Host:        ip,
-				Port:        uint16(port),
-				Transport:   observer.ProtocolTCP,
-				Labels: map[string]string{
-					"app_id":     "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-					"app_name":   "myapp",
-					"app_label":  "app_value",
-					"app_label2": "app_value2",
+			input: garden.ContainerInfo{
+				ContainerIP: testIp,
+				Properties: map[string]string{
+					"log_config":     logConfig,
+					"network.ports":  "8080",
+					"network.app_id": testAppID,
 				},
 			},
+			expected: []observer.Endpoint{
+				endpointFromPort(8080),
+			},
 		},
-	}
-
-	factory := NewFactory()
-	ext, err := newObserver(factory.CreateDefaultConfig().(*Config), zap.NewNop())
-	require.NoError(t, err)
-	require.NotNil(t, ext)
-
-	obs, ok := ext.(*cfGardenObserver)
-	require.True(t, ok)
-	obs.apps[appId] = &resource.App{
-		Metadata: &resource.Metadata{
-			Labels: map[string]*string{
-				"app_label":  strPtr("app_value"),
-				"app_label2": strPtr("app_value2"),
+		{
+			input: garden.ContainerInfo{
+				ContainerIP: testIp,
+				Properties: map[string]string{
+					"log_config":     logConfig,
+					"network.ports":  "8080,1234,9999",
+					"network.app_id": testAppID,
+				},
+			},
+			expected: []observer.Endpoint{
+				endpointFromPort(8080),
+				endpointFromPort(1234),
+				endpointFromPort(9999),
 			},
 		},
 	}
 
-	require.Equal(t, expected, obs.containerEndpoints(handle, input))
+	for _, tt := range tests {
+		factory := NewFactory()
+		ext, err := newObserver(factory.CreateDefaultConfig().(*Config), zap.NewNop())
+		require.NoError(t, err)
+		require.NotNil(t, ext)
+
+		obs, ok := ext.(*cfGardenObserver)
+		require.True(t, ok)
+		obs.apps[testAppID] = &resource.App{
+			Metadata: &resource.Metadata{
+				Labels: map[string]*string{
+					"app_label":  strPtr("app_value"),
+					"app_label2": strPtr("app_value2"),
+				},
+			},
+		}
+
+		require.Equal(t, tt.expected, obs.containerEndpoints(testHandle, tt.input))
+	}
 }
 
 func TestContainerLabels(t *testing.T) {
