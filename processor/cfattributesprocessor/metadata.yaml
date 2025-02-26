@@ -1,0 +1,11 @@
+type: cfattributes
+
+status:
+  class: processor
+  stability:
+    alpha: [metrics]
+  distributions: [contrib]
+  codeowners:
+    active: [jriguera, m1rp]
+tests:
+  config:
