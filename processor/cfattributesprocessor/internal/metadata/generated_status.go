@@ -8,7 +8,7 @@ import (
 
 var (
 	Type      = component.MustNewType("cfattributes")
-	ScopeName = "cfattributesprocessor"
+	ScopeName = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/cfattributesprocessor"
 )
 
 const (

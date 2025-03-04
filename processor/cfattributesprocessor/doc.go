@@ -5,4 +5,4 @@
 
 // Package attributesprocessor contains the logic to modify attributes of a span.
 // It supports insert, update, upsert and delete as actions.
-package cfattributesprocessor // import "cfattributesprocessor"
+package cfattributesprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/cfattributesprocessor"

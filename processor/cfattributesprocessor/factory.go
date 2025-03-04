@@ -1,14 +1,15 @@
-package cfattributesprocessor // import "cfattributesprocessor"
+package cfattributesprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/cfattributesprocessor"
 
 import (
 	"context"
 	"time"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/cfattributesprocessor/internal/metadata"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/processor/processorhelper"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/cfattributesprocessor/internal/metadata"
 )
 
 var typeStr = component.MustNewType("cfattributesprocessor")
