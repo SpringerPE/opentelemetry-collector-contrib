@@ -143,6 +143,17 @@ func TestPathGetSetter_NumberDataPoint(t *testing.T) {
 			},
 		},
 		{
+			name: "attributes",
+			path: &pathtest.Path[*testContext]{
+				N: "attributes",
+			},
+			orig:   refNumberDataPoint.Attributes(),
+			newVal: newAttrs.AsRaw(),
+			modified: func(datapoint pmetric.NumberDataPoint) {
+				_ = datapoint.Attributes().FromRaw(newAttrs.AsRaw())
+			},
+		},
+		{
 			name: "attributes string",
 			path: &pathtest.Path[*testContext]{
 				N: "attributes",
@@ -430,7 +441,7 @@ func TestPathGetSetter_NumberDataPoint(t *testing.T) {
 
 			numberDataPoint := createNumberDataPoint(tt.valueType)
 
-			ctx := newContext(numberDataPoint)
+			ctx := newTestContext(numberDataPoint)
 
 			got, err := accessor.Get(context.Background(), ctx)
 			assert.NoError(t, err)
@@ -606,6 +617,17 @@ func TestPathGetSetter_HistogramDataPoint(t *testing.T) {
 			newVal: newAttrs,
 			modified: func(datapoint pmetric.HistogramDataPoint) {
 				newAttrs.CopyTo(datapoint.Attributes())
+			},
+		},
+		{
+			name: "attributes raw map",
+			path: &pathtest.Path[*testContext]{
+				N: "attributes",
+			},
+			orig:   refHistogramDataPoint.Attributes(),
+			newVal: newAttrs.AsRaw(),
+			modified: func(datapoint pmetric.HistogramDataPoint) {
+				_ = datapoint.Attributes().FromRaw(newAttrs.AsRaw())
 			},
 		},
 		{
@@ -896,7 +918,7 @@ func TestPathGetSetter_HistogramDataPoint(t *testing.T) {
 
 			histogramDataPoint := createHistogramDataPointTelemetry()
 
-			ctx := newContext(histogramDataPoint)
+			ctx := newTestContext(histogramDataPoint)
 
 			got, err := accessor.Get(context.Background(), ctx)
 			assert.NoError(t, err)
@@ -1156,6 +1178,17 @@ func TestPathGetSetter_ExpoHistogramDataPoint(t *testing.T) {
 			newVal: newAttrs,
 			modified: func(datapoint pmetric.ExponentialHistogramDataPoint) {
 				newAttrs.CopyTo(datapoint.Attributes())
+			},
+		},
+		{
+			name: "attributes raw map",
+			path: &pathtest.Path[*testContext]{
+				N: "attributes",
+			},
+			orig:   refExpoHistogramDataPoint.Attributes(),
+			newVal: newAttrs.AsRaw(),
+			modified: func(datapoint pmetric.ExponentialHistogramDataPoint) {
+				_ = datapoint.Attributes().FromRaw(newAttrs.AsRaw())
 			},
 		},
 		{
@@ -1446,7 +1479,7 @@ func TestPathGetSetter_ExpoHistogramDataPoint(t *testing.T) {
 
 			expoHistogramDataPoint := createExpoHistogramDataPointTelemetry()
 
-			ctx := newContext(expoHistogramDataPoint)
+			ctx := newTestContext(expoHistogramDataPoint)
 
 			got, err := accessor.Get(context.Background(), ctx)
 			assert.NoError(t, err)
@@ -1606,6 +1639,17 @@ func TestPathGetSetter_SummaryDataPoint(t *testing.T) {
 			newVal: newAttrs,
 			modified: func(datapoint pmetric.SummaryDataPoint) {
 				newAttrs.CopyTo(datapoint.Attributes())
+			},
+		},
+		{
+			name: "attributes raw map",
+			path: &pathtest.Path[*testContext]{
+				N: "attributes",
+			},
+			orig:   refSummaryDataPoint.Attributes(),
+			newVal: newAttrs.AsRaw(),
+			modified: func(datapoint pmetric.SummaryDataPoint) {
+				_ = datapoint.Attributes().FromRaw(newAttrs.AsRaw())
 			},
 		},
 		{
@@ -1896,7 +1940,7 @@ func TestPathGetSetter_SummaryDataPoint(t *testing.T) {
 
 			summaryDataPoint := createSummaryDataPointTelemetry()
 
-			ctx := newContext(summaryDataPoint)
+			ctx := newTestContext(summaryDataPoint)
 
 			got, err := accessor.Get(context.Background(), ctx)
 			assert.NoError(t, err)
@@ -1984,6 +2028,6 @@ func (m *testContext) GetDataPoint() any {
 	return m.dataPoint
 }
 
-func newContext(dataPoint any) *testContext {
+func newTestContext(dataPoint any) *testContext {
 	return &testContext{dataPoint: dataPoint}
 }
