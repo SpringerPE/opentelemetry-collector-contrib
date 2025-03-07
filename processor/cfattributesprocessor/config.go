@@ -15,24 +15,51 @@ const (
 	authTypeToken authType = "token"
 )
 
+type authType string
+
 type Config struct {
 	// CloudFoundry API Configuration
 	CloudFoundry CfConfig `mapstructure:"cloud_foundry"`
 
-	// RefreshInterval determines the frequency at which the observer
-	// needs to poll for collecting information about new processes.
-	// Default: "1m"
-	RefreshInterval time.Duration `mapstructure:"refresh_interval"`
+	// Defines the resource attribute key where the CF App guid is defined
+	// Default: "app_id"
+	AppIDAttributeKeyAssociation string `mapstructure:"appid_attribute_association"`
 
-	// The time to wait before resyncing app information on cached containers
-	// using the CloudFoundry API.
+	// CacheTTL determines the time that CF objects (app, space, org) are kept in cache
+	// to avoid querying the CF API. This setting impacts the metadata being changed by the
+	// user.
 	// Default: "5m"
-	CacheSyncInterval time.Duration `mapstructure:"cache_sync_interval"`
+	CacheTTL time.Duration `mapstructure:"cache_ttl"`
 
-	// Determines whether or not Application labels get added to the Endpoint labels.
-	// This requires cloud_foundry to be configured, such that API calls can be made
+	// Attributes to include
+	Extract CfTagExtract `mapstructure:"extract"`
+}
+
+type CfTagExtract struct {
+	// Metadata
+	Metadata CfTagExtractMetadata `mapstructure:"metadata"`
+
+	// Determines whether or not App lifecycle information (buildpack and stack) gets add to resource attributes
 	// Default: false
-	IncludeSpaceMetadata bool `mapstructure:"include_space_metadata"`
+	AppStateLifecycle bool `mapstructure:"app_state_lifecycle"`
+
+	// Determines whether or not App dates information (star and updated) gets add to resource attributes
+	// Default: false
+	AppDates bool `mapstructure:"app_dates"`
+}
+
+type CfTagExtractMetadata struct {
+	// Determines whether or not Space labels and annotations get added to the resource attributes
+	// Default: false
+	Space bool `mapstructure:"space"`
+
+	// Determines whether or not Space labels and annotations get added to the resource attributes
+	// Default: false
+	Org bool `mapstructure:"org"`
+
+	// Determines whether or not Space labels and annotations get added to the resource attributes
+	// Default: true
+	App bool `mapstructure:"app"`
 }
 
 type CfConfig struct {
@@ -60,17 +87,15 @@ type CfAuth struct {
 	ClientSecret string `mapstructure:"client_secret"`
 }
 
-type authType string
-
 // Validate overrides the embedded noop validation so that load config can trigger
 // our own validation logic.
 func (config *Config) Validate() error {
 	c := config.CloudFoundry
 	if c.Endpoint == "" {
-		return errors.New("CloudFoundry.Endpoint must be specified when IncludeAppLabels is set to true")
+		return errors.New("CloudFoundry.Endpoint must be specified")
 	}
 	if c.Auth.Type == "" {
-		return errors.New("CloudFoundry.Auth.Type must be specified when IncludeAppLabels is set to true")
+		return errors.New("CloudFoundry.Auth.Type must be specified")
 	}
 
 	switch c.Auth.Type {
@@ -98,7 +123,6 @@ func (config *Config) Validate() error {
 	default:
 		return fmt.Errorf("configuration option `auth_type` must be set to one of the following values: [user_pass, client_credentials, token]. Specified value: %s", c.Auth.Type)
 	}
-
 	return nil
 }
 

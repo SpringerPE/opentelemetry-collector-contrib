@@ -1,11 +1,74 @@
-type: cfattributes
+type: CFAttributes
 
 status:
   class: processor
   stability:
-    alpha: [metrics]
+    development: [logs, metrics]
   distributions: [contrib]
   codeowners:
     active: [jriguera, m1rp]
 tests:
   config:
+
+# resource attributes are exposed through a different configuration interface (extract::metadata).
+resource_attributes:
+  cloudfoundry.org.name:
+    description: The name of the Org that the app is running in.
+    type: string
+    enabled: false
+  cloudfoundry.space.name:
+    description: The name of the Space that the app is running in.
+    type: string
+    enabled: false
+  cloudfoundry.app.name:
+    description: The name of the App
+    type: string
+    enabled: true
+  cloudfoundry.app.labels.X:
+    description: App labels
+    type: string
+    enabled: true
+  cloudfoundry.app.annotations.X:
+    description: App Annotations
+    type: string
+    enabled: true
+  cloudfoundry.app.state:
+    description: App state (running, stopped)
+    type: string
+    enabled: true
+  cloudfoundry.app.lifecycle.type:
+    description: App lifecycle type (buildpack, docker, ...)
+    type: string
+    enabled: true
+  cloudfoundry.app.lifecycle.stack:
+    description: App lifecycle stack (cflinuxfs4, cflinuxfs3, ...)
+    type: string
+    enabled: true
+  cloudfoundry.app.lifecycle.buildpacks.I:
+    description: Indexed list of buildpacks
+    type: string
+    enabled: true
+  cloudfoundry.app.created:
+    description: Time when app was created
+    type: string
+    enabled: true
+  cloudfoundry.app.updated:
+    description: Time when app was updated
+    type: string
+    enabled: true
+  cloudfoundry.space.labels.X:
+    description: Space labels
+    type: string
+    enabled: false
+  cloudfoundry.space.annotations.X:
+    description: Space Annotations
+    type: string
+    enabled: false
+  cloudfoundry.org.labels.X:
+    description: Org labels
+    type: string
+    enabled: false
+  cloudfoundry.org.annotations.X:
+    description: Org Annotations
+    type: string
+    enabled: false

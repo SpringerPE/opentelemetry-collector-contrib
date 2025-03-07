@@ -12,11 +12,14 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/cfattributesprocessor/internal/metadata"
 )
 
-var typeStr = component.MustNewType("cfattributesprocessor")
+var (
+	typeStr              = component.MustNewType("cfattributesprocessor")
+	consumerCapabilities = consumer.Capabilities{MutatesData: true}
+)
 
 const (
-	defaultCollectionInterval = 1 * time.Minute
-	defaultCacheSyncInterval  = 5 * time.Minute
+	defaultCacheTTL                = 10 * time.Minute
+	defaultAppIDAttrKeyAssociation = "app_id"
 )
 
 func NewFactory() processor.Factory {
@@ -24,13 +27,25 @@ func NewFactory() processor.Factory {
 		metadata.Type,
 		createDefaultConfig,
 		processor.WithMetrics(createMetricsProcessor, metadata.MetricsStability),
+		processor.WithLogs(createLogsProcessor, metadata.LogsStability),
 	)
 }
 
 func createDefaultConfig() component.Config {
+	metadata := CfTagExtractMetadata{
+		Space: false,
+		Org:   false,
+		App:   true,
+	}
+	extract := CfTagExtract{
+		Metadata:          metadata,
+		AppStateLifecycle: false,
+		AppDates:          false,
+	}
 	return &Config{
-		RefreshInterval:   defaultCollectionInterval,
-		CacheSyncInterval: defaultCacheSyncInterval,
+		CacheTTL:                     defaultCacheTTL,
+		Extract:                      extract,
+		AppIDAttributeKeyAssociation: defaultAppIDAttrKeyAssociation,
 	}
 }
 
@@ -41,13 +56,35 @@ func createMetricsProcessor(
 	nextConsumer consumer.Metrics,
 ) (processor.Metrics, error) {
 	processorConfig := cfg.(*Config)
-
 	metricsProcessor := newCFAttributesProcessor(processorConfig, set.Logger)
-
 	return processorhelper.NewMetrics(
 		ctx,
 		set,
 		cfg,
 		nextConsumer,
-		metricsProcessor.processMetrics)
+		metricsProcessor.processMetrics,
+		processorhelper.WithCapabilities(consumerCapabilities),
+		processorhelper.WithStart(metricsProcessor.Start),
+		processorhelper.WithShutdown(metricsProcessor.Shutdown),
+	)
+}
+
+func createLogsProcessor(
+	ctx context.Context,
+	set processor.Settings,
+	cfg component.Config,
+	nextConsumer consumer.Logs,
+) (processor.Logs, error) {
+	processorConfig := cfg.(*Config)
+	logsProcessor := newCFAttributesProcessor(processorConfig, set.Logger)
+	return processorhelper.NewLogs(
+		ctx,
+		set,
+		cfg,
+		nextConsumer,
+		logsProcessor.processLogs,
+		processorhelper.WithCapabilities(consumerCapabilities),
+		processorhelper.WithStart(logsProcessor.Start),
+		processorhelper.WithShutdown(logsProcessor.Shutdown),
+	)
 }

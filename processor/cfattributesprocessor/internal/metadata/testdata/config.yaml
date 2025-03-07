@@ -1,0 +1,65 @@
+default:
+all_set:
+  resource_attributes:
+    cloudfoundry.app.annotations.X:
+      enabled: true
+    cloudfoundry.app.created:
+      enabled: true
+    cloudfoundry.app.labels.X:
+      enabled: true
+    cloudfoundry.app.lifecycle.buildpacks.I:
+      enabled: true
+    cloudfoundry.app.lifecycle.stack:
+      enabled: true
+    cloudfoundry.app.lifecycle.type:
+      enabled: true
+    cloudfoundry.app.name:
+      enabled: true
+    cloudfoundry.app.state:
+      enabled: true
+    cloudfoundry.app.updated:
+      enabled: true
+    cloudfoundry.org.annotations.X:
+      enabled: true
+    cloudfoundry.org.labels.X:
+      enabled: true
+    cloudfoundry.org.name:
+      enabled: true
+    cloudfoundry.space.annotations.X:
+      enabled: true
+    cloudfoundry.space.labels.X:
+      enabled: true
+    cloudfoundry.space.name:
+      enabled: true
+none_set:
+  resource_attributes:
+    cloudfoundry.app.annotations.X:
+      enabled: false
+    cloudfoundry.app.created:
+      enabled: false
+    cloudfoundry.app.labels.X:
+      enabled: false
+    cloudfoundry.app.lifecycle.buildpacks.I:
+      enabled: false
+    cloudfoundry.app.lifecycle.stack:
+      enabled: false
+    cloudfoundry.app.lifecycle.type:
+      enabled: false
+    cloudfoundry.app.name:
+      enabled: false
+    cloudfoundry.app.state:
+      enabled: false
+    cloudfoundry.app.updated:
+      enabled: false
+    cloudfoundry.org.annotations.X:
+      enabled: false
+    cloudfoundry.org.labels.X:
+      enabled: false
+    cloudfoundry.org.name:
+      enabled: false
+    cloudfoundry.space.annotations.X:
+      enabled: false
+    cloudfoundry.space.labels.X:
+      enabled: false
+    cloudfoundry.space.name:
+      enabled: false
