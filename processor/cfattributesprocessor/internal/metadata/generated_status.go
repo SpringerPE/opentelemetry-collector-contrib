@@ -7,11 +7,12 @@ import (
 )
 
 var (
-	Type      = component.MustNewType("CFAttributes")
+	Type      = component.MustNewType("cfattributes")
 	ScopeName = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/cfattributesprocessor"
 )
 
 const (
-	LogsStability    = component.StabilityLevelDevelopment
-	MetricsStability = component.StabilityLevelDevelopment
+	LogsStability    = component.StabilityLevelAlpha
+	MetricsStability = component.StabilityLevelAlpha
+	TracesStability  = component.StabilityLevelAlpha
 )

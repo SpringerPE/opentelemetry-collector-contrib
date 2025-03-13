@@ -25,7 +25,7 @@ func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
 	return nil
 }
 
-// ResourceAttributesConfig provides config for CFAttributes resource attributes.
+// ResourceAttributesConfig provides config for cfattributes resource attributes.
 type ResourceAttributesConfig struct {
 	CloudfoundryAppAnnotationsX         ResourceAttributeConfig `mapstructure:"cloudfoundry.app.annotations.X"`
 	CloudfoundryAppCreated              ResourceAttributeConfig `mapstructure:"cloudfoundry.app.created"`

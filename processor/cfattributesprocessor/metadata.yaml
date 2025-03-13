@@ -1,9 +1,9 @@
-type: CFAttributes
+type: cfattributes
 
 status:
   class: processor
   stability:
-    development: [logs, metrics]
+    alpha: [logs, metrics, traces]
   distributions: [contrib]
   codeowners:
     active: [jriguera, m1rp]

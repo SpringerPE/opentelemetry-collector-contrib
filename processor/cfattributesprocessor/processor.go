@@ -8,6 +8,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/cfattributesprocessor/internal/cf"
@@ -73,6 +74,14 @@ func (cfap *cfAttributesProcessor) processLogs(ctx context.Context, ld plog.Logs
 		cfap.processResource(ctx, rl.At(i).Resource())
 	}
 	return ld, nil
+}
+
+func (cfap *cfAttributesProcessor) processTraces(ctx context.Context, td ptrace.Traces) (ptrace.Traces, error) {
+	rss := td.ResourceSpans()
+	for i := 0; i < rss.Len(); i++ {
+		cfap.processResource(ctx, rss.At(i).Resource())
+	}
+	return td, nil
 }
 
 func (cfap *cfAttributesProcessor) getAppID(resource pcommon.Resource) string {

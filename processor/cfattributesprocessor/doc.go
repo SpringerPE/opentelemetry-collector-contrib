@@ -3,6 +3,5 @@
 
 //go:generate mdatagen metadata.yaml
 
-// Package attributesprocessor contains the logic to modify attributes of a span.
-// It supports insert, update, upsert and delete as actions.
+// Package cfattributesprocessor
 package cfattributesprocessor // import "github.com/open-telemetry/opentelemetry-collector-contrib/processor/cfattributesprocessor"
