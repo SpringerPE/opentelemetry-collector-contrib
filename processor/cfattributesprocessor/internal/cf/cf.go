@@ -27,6 +27,8 @@ const (
 	// number of shards (must be a power of 2)
 	bigcacheShards  = 1024
 	bigcacheVerbose = true
+	// Interval between removing expired entries (clean up).
+	bigcacheCleanWindow = 1 * time.Minute
 )
 
 type Client struct {
@@ -99,9 +101,11 @@ func WithCacheTTL(cacheTTL time.Duration) func(*Client) {
 
 func (cfCli *Client) newCache() (*bigcache.BigCache, error) {
 	config := bigcache.Config{
-		Shards:     bigcacheShards,
-		LifeWindow: cfCli.cacheTTL,
-		Verbose:    bigcacheVerbose,
+		Shards:           bigcacheShards,
+		LifeWindow:       cfCli.cacheTTL,
+		CleanWindow:      bigcacheCleanWindow,
+		HardMaxCacheSize: 0,
+		Verbose:          bigcacheVerbose,
 	}
 	cache, err := bigcache.New(cfCli.ctx, config)
 	if err != nil {
