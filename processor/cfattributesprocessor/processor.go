@@ -222,6 +222,7 @@ func (cfap *cfAttributesProcessor) addSpaceMetadata(spaceID string, resource pco
 			resource.Attributes().PutStr(cfAttrNSPrefix+"space.annotations."+k, *v)
 		}
 	}
+	return nil
 }
 
 func (cfap *cfAttributesProcessor) addOrgMetadata(orgID string, resource pcommon.Resource) error {
