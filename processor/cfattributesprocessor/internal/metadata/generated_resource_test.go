@@ -47,77 +47,77 @@ func TestResourceBuilder(t *testing.T) {
 			val, ok := res.Attributes().Get("cloudfoundry.app.annotations.X")
 			assert.True(t, ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.app.annotations.X-val", val.Str())
+				assert.Equal(t, "cloudfoundry.app.annotations.X-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.app.created")
 			assert.True(t, ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.app.created-val", val.Str())
+				assert.Equal(t, "cloudfoundry.app.created-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.app.labels.X")
 			assert.True(t, ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.app.labels.X-val", val.Str())
+				assert.Equal(t, "cloudfoundry.app.labels.X-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.app.lifecycle.buildpacks.I")
 			assert.True(t, ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.app.lifecycle.buildpacks.I-val", val.Str())
+				assert.Equal(t, "cloudfoundry.app.lifecycle.buildpacks.I-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.app.lifecycle.stack")
 			assert.True(t, ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.app.lifecycle.stack-val", val.Str())
+				assert.Equal(t, "cloudfoundry.app.lifecycle.stack-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.app.lifecycle.type")
 			assert.True(t, ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.app.lifecycle.type-val", val.Str())
+				assert.Equal(t, "cloudfoundry.app.lifecycle.type-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.app.name")
 			assert.True(t, ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.app.name-val", val.Str())
+				assert.Equal(t, "cloudfoundry.app.name-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.app.state")
 			assert.True(t, ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.app.state-val", val.Str())
+				assert.Equal(t, "cloudfoundry.app.state-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.app.updated")
 			assert.True(t, ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.app.updated-val", val.Str())
+				assert.Equal(t, "cloudfoundry.app.updated-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.org.annotations.X")
 			assert.Equal(t, tt == "all_set", ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.org.annotations.X-val", val.Str())
+				assert.Equal(t, "cloudfoundry.org.annotations.X-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.org.labels.X")
 			assert.Equal(t, tt == "all_set", ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.org.labels.X-val", val.Str())
+				assert.Equal(t, "cloudfoundry.org.labels.X-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.org.name")
 			assert.Equal(t, tt == "all_set", ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.org.name-val", val.Str())
+				assert.Equal(t, "cloudfoundry.org.name-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.space.annotations.X")
 			assert.Equal(t, tt == "all_set", ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.space.annotations.X-val", val.Str())
+				assert.Equal(t, "cloudfoundry.space.annotations.X-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.space.labels.X")
 			assert.Equal(t, tt == "all_set", ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.space.labels.X-val", val.Str())
+				assert.Equal(t, "cloudfoundry.space.labels.X-val", val.Str())
 			}
 			val, ok = res.Attributes().Get("cloudfoundry.space.name")
 			assert.Equal(t, tt == "all_set", ok)
 			if ok {
-				assert.EqualValues(t, "cloudfoundry.space.name-val", val.Str())
+				assert.Equal(t, "cloudfoundry.space.name-val", val.Str())
 			}
 		})
 	}

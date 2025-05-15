@@ -84,6 +84,18 @@ func (cfap *cfAttributesProcessor) processTraces(ctx context.Context, td ptrace.
 	return td, nil
 }
 
+func (cfap *cfAttributesProcessor) processResource(ctx context.Context, resource pcommon.Resource) error {
+	done, err := cfap.processAppID(ctx, resource)
+	if err != nil {
+		return err
+	}
+	if !done {
+		_, err := cfap.processSpaceID(ctx, resource)
+		return err
+	}
+	return nil
+}
+
 func (cfap *cfAttributesProcessor) getSpaceID(resource pcommon.Resource) string {
 	spaceIdentifierValue := ""
 	if val, ok := resource.Attributes().Get(cfap.config.SpaceIDAttributeKeyAssociation); ok {
@@ -94,26 +106,27 @@ func (cfap *cfAttributesProcessor) getSpaceID(resource pcommon.Resource) string 
 	return spaceIdentifierValue
 }
 
-func (cfap *cfAttributesProcessor) processSpaceID(ctx context.Context, resource pcommon.Resource) error {
+func (cfap *cfAttributesProcessor) processSpaceID(ctx context.Context, resource pcommon.Resource) (bool, error) {
 	if spaceID := cfap.getSpaceID(resource); spaceID != "" {
-		spaceName, err := cfap.cfCli.GetSpaceName(spaceID)
-		if err != nil {
-			return err
-		}
-		resource.Attributes().PutStr(cfAttrNSPrefix+"space.name", spaceName)
-		if spaceLabels, spaceAnnotations, err := cfap.cfCli.GetSpaceMetadata(spaceID); err == nil {
-			for k, v := range spaceLabels {
-				resource.Attributes().PutStr(cfAttrNSPrefix+"space.labels."+k, *v)
+		if cfap.config.Extract.Metadata.Space {
+			err := cfap.addSpaceMetadata(spaceID, resource)
+			if err != nil {
+				return false, err
 			}
-			for k, v := range spaceAnnotations {
-				resource.Attributes().PutStr(cfAttrNSPrefix+"space.annotations."+k, *v)
+			if cfap.config.Extract.Metadata.Org {
+				orgID, err := cfap.cfCli.GetSpaceOrg(spaceID)
+				if err != nil {
+					return false, err
+				}
+				err = cfap.addOrgMetadata(orgID, resource)
+				if err != nil {
+					return false, err
+				}
 			}
-		} else {
-			cfap.logger.Error(err.Error())
-			return err
+			return true, nil
 		}
 	}
-	return nil
+	return false, nil
 }
 
 func (cfap *cfAttributesProcessor) getAppID(resource pcommon.Resource) string {
@@ -126,11 +139,11 @@ func (cfap *cfAttributesProcessor) getAppID(resource pcommon.Resource) string {
 	return appIdentifierValue
 }
 
-func (cfap *cfAttributesProcessor) processResource(ctx context.Context, resource pcommon.Resource) error {
+func (cfap *cfAttributesProcessor) processAppID(ctx context.Context, resource pcommon.Resource) (bool, error) {
 	if appID := cfap.getAppID(resource); appID != "" {
 		appName, err := cfap.cfCli.GetAppName(appID)
 		if err != nil {
-			return err
+			return false, err
 		}
 		resource.Attributes().PutStr(cfAttrNSPrefix+"app.name", appName)
 		if cfap.config.Extract.Metadata.App {
@@ -143,18 +156,18 @@ func (cfap *cfAttributesProcessor) processResource(ctx context.Context, resource
 				}
 			} else {
 				cfap.logger.Error(err.Error())
-				return err
+				return false, err
 			}
 		}
 		if cfap.config.Extract.AppStateLifecycle {
 			appState, err := cfap.cfCli.GetAppState(appID)
 			if err != nil {
-				return err
+				return false, err
 			}
 			resource.Attributes().PutStr(cfAttrNSPrefix+"app.state", appState)
 			lcType, buildpacks, stack, err := cfap.cfCli.GetAppLifecycle(appID)
 			if err != nil {
-				return err
+				return false, err
 			}
 			resource.Attributes().PutStr(cfAttrNSPrefix+"app.lifecyle.type", lcType)
 			resource.Attributes().PutStr(cfAttrNSPrefix+"app.lifecyle.stack", stack)
@@ -165,7 +178,7 @@ func (cfap *cfAttributesProcessor) processResource(ctx context.Context, resource
 		if cfap.config.Extract.AppDates {
 			created, updated, err := cfap.cfCli.GetAppDates(appID)
 			if err != nil {
-				return err
+				return false, err
 			}
 			resource.Attributes().PutStr(cfAttrNSPrefix+"app.created", created)
 			resource.Attributes().PutStr(cfAttrNSPrefix+"app.updated", updated)
@@ -173,40 +186,56 @@ func (cfap *cfAttributesProcessor) processResource(ctx context.Context, resource
 		if cfap.config.Extract.Metadata.Space {
 			spaceID, err := cfap.cfCli.GetAppSpace(appID)
 			if err != nil {
-				return err
+				return false, err
 			}
-			spaceName, err := cfap.cfCli.GetSpaceName(spaceID)
+			err = cfap.addSpaceMetadata(spaceID, resource)
 			if err != nil {
-				return err
-			}
-			resource.Attributes().PutStr(cfAttrNSPrefix+"space.name", spaceName)
-			if spaceLabels, spaceAnnotations, err := cfap.cfCli.GetSpaceMetadata(spaceID); err == nil {
-				for k, v := range spaceLabels {
-					resource.Attributes().PutStr(cfAttrNSPrefix+"space.labels."+k, *v)
-				}
-				for k, v := range spaceAnnotations {
-					resource.Attributes().PutStr(cfAttrNSPrefix+"space.annotations."+k, *v)
-				}
+				return false, err
 			}
 			if cfap.config.Extract.Metadata.Org {
 				orgID, err := cfap.cfCli.GetSpaceOrg(spaceID)
 				if err != nil {
-					return err
+					return false, err
 				}
-				orgName, err := cfap.cfCli.GetOrgName(orgID)
+				err = cfap.addOrgMetadata(orgID, resource)
 				if err != nil {
-					return err
-				}
-				resource.Attributes().PutStr(cfAttrNSPrefix+"org.name", orgName)
-				if orgLabels, orgAnnotations, err := cfap.cfCli.GetOrgMetadata(orgID); err == nil {
-					for k, v := range orgLabels {
-						resource.Attributes().PutStr(cfAttrNSPrefix+"org.labels."+k, *v)
-					}
-					for k, v := range orgAnnotations {
-						resource.Attributes().PutStr(cfAttrNSPrefix+"org.annotations."+k, *v)
-					}
+					return false, err
 				}
 			}
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func (cfap *cfAttributesProcessor) addSpaceMetadata(spaceID string, resource pcommon.Resource) error {
+	spaceName, err := cfap.cfCli.GetSpaceName(spaceID)
+	if err != nil {
+		return err
+	}
+	resource.Attributes().PutStr(cfAttrNSPrefix+"space.name", spaceName)
+	if spaceLabels, spaceAnnotations, err := cfap.cfCli.GetSpaceMetadata(spaceID); err == nil {
+		for k, v := range spaceLabels {
+			resource.Attributes().PutStr(cfAttrNSPrefix+"space.labels."+k, *v)
+		}
+		for k, v := range spaceAnnotations {
+			resource.Attributes().PutStr(cfAttrNSPrefix+"space.annotations."+k, *v)
+		}
+	}
+}
+
+func (cfap *cfAttributesProcessor) addOrgMetadata(orgID string, resource pcommon.Resource) error {
+	orgName, err := cfap.cfCli.GetOrgName(orgID)
+	if err != nil {
+		return err
+	}
+	resource.Attributes().PutStr(cfAttrNSPrefix+"org.name", orgName)
+	if orgLabels, orgAnnotations, err := cfap.cfCli.GetOrgMetadata(orgID); err == nil {
+		for k, v := range orgLabels {
+			resource.Attributes().PutStr(cfAttrNSPrefix+"org.labels."+k, *v)
+		}
+		for k, v := range orgAnnotations {
+			resource.Attributes().PutStr(cfAttrNSPrefix+"org.annotations."+k, *v)
 		}
 	}
 	return nil
