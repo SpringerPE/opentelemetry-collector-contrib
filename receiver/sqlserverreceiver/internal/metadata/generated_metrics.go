@@ -212,6 +212,200 @@ var MapAttributeTempdbState = map[string]AttributeTempdbState{
 	"used": AttributeTempdbStateUsed,
 }
 
+var MetricsInfo = metricsInfo{
+	SqlserverBatchRequestRate: metricInfo{
+		Name: "sqlserver.batch.request.rate",
+	},
+	SqlserverBatchSQLCompilationRate: metricInfo{
+		Name: "sqlserver.batch.sql_compilation.rate",
+	},
+	SqlserverBatchSQLRecompilationRate: metricInfo{
+		Name: "sqlserver.batch.sql_recompilation.rate",
+	},
+	SqlserverDatabaseBackupOrRestoreRate: metricInfo{
+		Name: "sqlserver.database.backup_or_restore.rate",
+	},
+	SqlserverDatabaseCount: metricInfo{
+		Name: "sqlserver.database.count",
+	},
+	SqlserverDatabaseExecutionErrors: metricInfo{
+		Name: "sqlserver.database.execution.errors",
+	},
+	SqlserverDatabaseFullScanRate: metricInfo{
+		Name: "sqlserver.database.full_scan.rate",
+	},
+	SqlserverDatabaseIo: metricInfo{
+		Name: "sqlserver.database.io",
+	},
+	SqlserverDatabaseLatency: metricInfo{
+		Name: "sqlserver.database.latency",
+	},
+	SqlserverDatabaseOperations: metricInfo{
+		Name: "sqlserver.database.operations",
+	},
+	SqlserverDatabaseTempdbSpace: metricInfo{
+		Name: "sqlserver.database.tempdb.space",
+	},
+	SqlserverDatabaseTempdbVersionStoreSize: metricInfo{
+		Name: "sqlserver.database.tempdb.version_store.size",
+	},
+	SqlserverDeadlockRate: metricInfo{
+		Name: "sqlserver.deadlock.rate",
+	},
+	SqlserverIndexSearchRate: metricInfo{
+		Name: "sqlserver.index.search.rate",
+	},
+	SqlserverLockTimeoutRate: metricInfo{
+		Name: "sqlserver.lock.timeout.rate",
+	},
+	SqlserverLockWaitRate: metricInfo{
+		Name: "sqlserver.lock.wait.rate",
+	},
+	SqlserverLockWaitTimeAvg: metricInfo{
+		Name: "sqlserver.lock.wait_time.avg",
+	},
+	SqlserverLoginRate: metricInfo{
+		Name: "sqlserver.login.rate",
+	},
+	SqlserverLogoutRate: metricInfo{
+		Name: "sqlserver.logout.rate",
+	},
+	SqlserverMemoryGrantsPendingCount: metricInfo{
+		Name: "sqlserver.memory.grants.pending.count",
+	},
+	SqlserverMemoryUsage: metricInfo{
+		Name: "sqlserver.memory.usage",
+	},
+	SqlserverPageBufferCacheFreeListStallsRate: metricInfo{
+		Name: "sqlserver.page.buffer_cache.free_list.stalls.rate",
+	},
+	SqlserverPageBufferCacheHitRatio: metricInfo{
+		Name: "sqlserver.page.buffer_cache.hit_ratio",
+	},
+	SqlserverPageCheckpointFlushRate: metricInfo{
+		Name: "sqlserver.page.checkpoint.flush.rate",
+	},
+	SqlserverPageLazyWriteRate: metricInfo{
+		Name: "sqlserver.page.lazy_write.rate",
+	},
+	SqlserverPageLifeExpectancy: metricInfo{
+		Name: "sqlserver.page.life_expectancy",
+	},
+	SqlserverPageLookupRate: metricInfo{
+		Name: "sqlserver.page.lookup.rate",
+	},
+	SqlserverPageOperationRate: metricInfo{
+		Name: "sqlserver.page.operation.rate",
+	},
+	SqlserverPageSplitRate: metricInfo{
+		Name: "sqlserver.page.split.rate",
+	},
+	SqlserverProcessesBlocked: metricInfo{
+		Name: "sqlserver.processes.blocked",
+	},
+	SqlserverReplicaDataRate: metricInfo{
+		Name: "sqlserver.replica.data.rate",
+	},
+	SqlserverResourcePoolDiskOperations: metricInfo{
+		Name: "sqlserver.resource_pool.disk.operations",
+	},
+	SqlserverResourcePoolDiskThrottledReadRate: metricInfo{
+		Name: "sqlserver.resource_pool.disk.throttled.read.rate",
+	},
+	SqlserverResourcePoolDiskThrottledWriteRate: metricInfo{
+		Name: "sqlserver.resource_pool.disk.throttled.write.rate",
+	},
+	SqlserverTableCount: metricInfo{
+		Name: "sqlserver.table.count",
+	},
+	SqlserverTransactionDelay: metricInfo{
+		Name: "sqlserver.transaction.delay",
+	},
+	SqlserverTransactionMirrorWriteRate: metricInfo{
+		Name: "sqlserver.transaction.mirror_write.rate",
+	},
+	SqlserverTransactionRate: metricInfo{
+		Name: "sqlserver.transaction.rate",
+	},
+	SqlserverTransactionWriteRate: metricInfo{
+		Name: "sqlserver.transaction.write.rate",
+	},
+	SqlserverTransactionLogFlushDataRate: metricInfo{
+		Name: "sqlserver.transaction_log.flush.data.rate",
+	},
+	SqlserverTransactionLogFlushRate: metricInfo{
+		Name: "sqlserver.transaction_log.flush.rate",
+	},
+	SqlserverTransactionLogFlushWaitRate: metricInfo{
+		Name: "sqlserver.transaction_log.flush.wait.rate",
+	},
+	SqlserverTransactionLogGrowthCount: metricInfo{
+		Name: "sqlserver.transaction_log.growth.count",
+	},
+	SqlserverTransactionLogShrinkCount: metricInfo{
+		Name: "sqlserver.transaction_log.shrink.count",
+	},
+	SqlserverTransactionLogUsage: metricInfo{
+		Name: "sqlserver.transaction_log.usage",
+	},
+	SqlserverUserConnectionCount: metricInfo{
+		Name: "sqlserver.user.connection.count",
+	},
+}
+
+type metricsInfo struct {
+	SqlserverBatchRequestRate                   metricInfo
+	SqlserverBatchSQLCompilationRate            metricInfo
+	SqlserverBatchSQLRecompilationRate          metricInfo
+	SqlserverDatabaseBackupOrRestoreRate        metricInfo
+	SqlserverDatabaseCount                      metricInfo
+	SqlserverDatabaseExecutionErrors            metricInfo
+	SqlserverDatabaseFullScanRate               metricInfo
+	SqlserverDatabaseIo                         metricInfo
+	SqlserverDatabaseLatency                    metricInfo
+	SqlserverDatabaseOperations                 metricInfo
+	SqlserverDatabaseTempdbSpace                metricInfo
+	SqlserverDatabaseTempdbVersionStoreSize     metricInfo
+	SqlserverDeadlockRate                       metricInfo
+	SqlserverIndexSearchRate                    metricInfo
+	SqlserverLockTimeoutRate                    metricInfo
+	SqlserverLockWaitRate                       metricInfo
+	SqlserverLockWaitTimeAvg                    metricInfo
+	SqlserverLoginRate                          metricInfo
+	SqlserverLogoutRate                         metricInfo
+	SqlserverMemoryGrantsPendingCount           metricInfo
+	SqlserverMemoryUsage                        metricInfo
+	SqlserverPageBufferCacheFreeListStallsRate  metricInfo
+	SqlserverPageBufferCacheHitRatio            metricInfo
+	SqlserverPageCheckpointFlushRate            metricInfo
+	SqlserverPageLazyWriteRate                  metricInfo
+	SqlserverPageLifeExpectancy                 metricInfo
+	SqlserverPageLookupRate                     metricInfo
+	SqlserverPageOperationRate                  metricInfo
+	SqlserverPageSplitRate                      metricInfo
+	SqlserverProcessesBlocked                   metricInfo
+	SqlserverReplicaDataRate                    metricInfo
+	SqlserverResourcePoolDiskOperations         metricInfo
+	SqlserverResourcePoolDiskThrottledReadRate  metricInfo
+	SqlserverResourcePoolDiskThrottledWriteRate metricInfo
+	SqlserverTableCount                         metricInfo
+	SqlserverTransactionDelay                   metricInfo
+	SqlserverTransactionMirrorWriteRate         metricInfo
+	SqlserverTransactionRate                    metricInfo
+	SqlserverTransactionWriteRate               metricInfo
+	SqlserverTransactionLogFlushDataRate        metricInfo
+	SqlserverTransactionLogFlushRate            metricInfo
+	SqlserverTransactionLogFlushWaitRate        metricInfo
+	SqlserverTransactionLogGrowthCount          metricInfo
+	SqlserverTransactionLogShrinkCount          metricInfo
+	SqlserverTransactionLogUsage                metricInfo
+	SqlserverUserConnectionCount                metricInfo
+}
+
+type metricInfo struct {
+	Name string
+}
+
 type metricSqlserverBatchRequestRate struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
@@ -522,14 +716,14 @@ func (m *metricSqlserverDatabaseFullScanRate) init() {
 	m.data.SetEmptyGauge()
 }
 
-func (m *metricSqlserverDatabaseFullScanRate) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+func (m *metricSqlserverDatabaseFullScanRate) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
 	if !m.config.Enabled {
 		return
 	}
 	dp := m.data.Gauge().DataPoints().AppendEmpty()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
-	dp.SetIntValue(val)
+	dp.SetDoubleValue(val)
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1766,6 +1960,57 @@ func newMetricSqlserverReplicaDataRate(cfg MetricConfig) metricSqlserverReplicaD
 	return m
 }
 
+type metricSqlserverResourcePoolDiskOperations struct {
+	data     pmetric.Metric // data buffer for generated metric.
+	config   MetricConfig   // metric config provided by user.
+	capacity int            // max observed number of data points added to the metric.
+}
+
+// init fills sqlserver.resource_pool.disk.operations metric with initial data.
+func (m *metricSqlserverResourcePoolDiskOperations) init() {
+	m.data.SetName("sqlserver.resource_pool.disk.operations")
+	m.data.SetDescription("The rate of operations issued.")
+	m.data.SetUnit("{operations}/s")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricSqlserverResourcePoolDiskOperations) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, directionAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+	dp.Attributes().PutStr("direction", directionAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricSqlserverResourcePoolDiskOperations) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricSqlserverResourcePoolDiskOperations) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricSqlserverResourcePoolDiskOperations(cfg MetricConfig) metricSqlserverResourcePoolDiskOperations {
+	m := metricSqlserverResourcePoolDiskOperations{config: cfg}
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricSqlserverResourcePoolDiskThrottledReadRate struct {
 	data     pmetric.Metric // data buffer for generated metric.
 	config   MetricConfig   // metric config provided by user.
@@ -2504,6 +2749,7 @@ type MetricsBuilder struct {
 	metricSqlserverPageSplitRate                      metricSqlserverPageSplitRate
 	metricSqlserverProcessesBlocked                   metricSqlserverProcessesBlocked
 	metricSqlserverReplicaDataRate                    metricSqlserverReplicaDataRate
+	metricSqlserverResourcePoolDiskOperations         metricSqlserverResourcePoolDiskOperations
 	metricSqlserverResourcePoolDiskThrottledReadRate  metricSqlserverResourcePoolDiskThrottledReadRate
 	metricSqlserverResourcePoolDiskThrottledWriteRate metricSqlserverResourcePoolDiskThrottledWriteRate
 	metricSqlserverTableCount                         metricSqlserverTableCount
@@ -2538,12 +2784,6 @@ func WithStartTime(startTime pcommon.Timestamp) MetricBuilderOption {
 	})
 }
 func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, options ...MetricBuilderOption) *MetricsBuilder {
-	if !mbc.ResourceAttributes.ServerAddress.enabledSetByUser {
-		settings.Logger.Warn("[WARNING] Please set `enabled` field explicitly for `server.address`: This attribute will be enabled by default starting in release v0.121.0.")
-	}
-	if !mbc.ResourceAttributes.ServerPort.enabledSetByUser {
-		settings.Logger.Warn("[WARNING] Please set `enabled` field explicitly for `server.port`: This attribute will be enabled by default starting in release v0.121.0.")
-	}
 	mb := &MetricsBuilder{
 		config:                                   mbc,
 		startTime:                                pcommon.NewTimestampFromTime(time.Now()),
@@ -2580,6 +2820,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricSqlserverPageSplitRate:                      newMetricSqlserverPageSplitRate(mbc.Metrics.SqlserverPageSplitRate),
 		metricSqlserverProcessesBlocked:                   newMetricSqlserverProcessesBlocked(mbc.Metrics.SqlserverProcessesBlocked),
 		metricSqlserverReplicaDataRate:                    newMetricSqlserverReplicaDataRate(mbc.Metrics.SqlserverReplicaDataRate),
+		metricSqlserverResourcePoolDiskOperations:         newMetricSqlserverResourcePoolDiskOperations(mbc.Metrics.SqlserverResourcePoolDiskOperations),
 		metricSqlserverResourcePoolDiskThrottledReadRate:  newMetricSqlserverResourcePoolDiskThrottledReadRate(mbc.Metrics.SqlserverResourcePoolDiskThrottledReadRate),
 		metricSqlserverResourcePoolDiskThrottledWriteRate: newMetricSqlserverResourcePoolDiskThrottledWriteRate(mbc.Metrics.SqlserverResourcePoolDiskThrottledWriteRate),
 		metricSqlserverTableCount:                         newMetricSqlserverTableCount(mbc.Metrics.SqlserverTableCount),
@@ -2727,6 +2968,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricSqlserverPageSplitRate.emit(ils.Metrics())
 	mb.metricSqlserverProcessesBlocked.emit(ils.Metrics())
 	mb.metricSqlserverReplicaDataRate.emit(ils.Metrics())
+	mb.metricSqlserverResourcePoolDiskOperations.emit(ils.Metrics())
 	mb.metricSqlserverResourcePoolDiskThrottledReadRate.emit(ils.Metrics())
 	mb.metricSqlserverResourcePoolDiskThrottledWriteRate.emit(ils.Metrics())
 	mb.metricSqlserverTableCount.emit(ils.Metrics())
@@ -2808,7 +3050,7 @@ func (mb *MetricsBuilder) RecordSqlserverDatabaseExecutionErrorsDataPoint(ts pco
 }
 
 // RecordSqlserverDatabaseFullScanRateDataPoint adds a data point to sqlserver.database.full_scan.rate metric.
-func (mb *MetricsBuilder) RecordSqlserverDatabaseFullScanRateDataPoint(ts pcommon.Timestamp, val int64) {
+func (mb *MetricsBuilder) RecordSqlserverDatabaseFullScanRateDataPoint(ts pcommon.Timestamp, val float64) {
 	mb.metricSqlserverDatabaseFullScanRate.recordDataPoint(mb.startTime, ts, val)
 }
 
@@ -2945,6 +3187,11 @@ func (mb *MetricsBuilder) RecordSqlserverProcessesBlockedDataPoint(ts pcommon.Ti
 // RecordSqlserverReplicaDataRateDataPoint adds a data point to sqlserver.replica.data.rate metric.
 func (mb *MetricsBuilder) RecordSqlserverReplicaDataRateDataPoint(ts pcommon.Timestamp, val float64, replicaDirectionAttributeValue AttributeReplicaDirection) {
 	mb.metricSqlserverReplicaDataRate.recordDataPoint(mb.startTime, ts, val, replicaDirectionAttributeValue.String())
+}
+
+// RecordSqlserverResourcePoolDiskOperationsDataPoint adds a data point to sqlserver.resource_pool.disk.operations metric.
+func (mb *MetricsBuilder) RecordSqlserverResourcePoolDiskOperationsDataPoint(ts pcommon.Timestamp, val float64, directionAttributeValue AttributeDirection) {
+	mb.metricSqlserverResourcePoolDiskOperations.recordDataPoint(mb.startTime, ts, val, directionAttributeValue.String())
 }
 
 // RecordSqlserverResourcePoolDiskThrottledReadRateDataPoint adds a data point to sqlserver.resource_pool.disk.throttled.read.rate metric.

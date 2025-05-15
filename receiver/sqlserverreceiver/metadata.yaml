@@ -4,9 +4,10 @@ status:
   class: receiver
   stability:
     beta: [metrics]
+    development: [logs]
   distributions: [contrib]
   codeowners:
-    active: [StefanKurek]
+    active: [StefanKurek, sincejune, crobert-1]
     seeking_new: true
 
 resource_attributes:
@@ -26,14 +27,10 @@ resource_attributes:
     description: Name of the database host.
     enabled: false
     type: string
-    warnings:
-      if_enabled_not_set: "This attribute will be enabled by default starting in release v0.121.0."
   server.port:
     description: Server port number.
     enabled: false
     type: int
-    warnings:
-      if_enabled_not_set: "This attribute will be enabled by default starting in release v0.121.0."
 
 attributes:
   page.operations:
@@ -247,6 +244,14 @@ metrics:
       input_type: string
     attributes: [ physical_filename, logical_filename, file_type, direction ]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.resource_pool.disk.operations:
+    enabled: false
+    description: The rate of operations issued.
+    unit: "{operations}/s"
+    gauge:
+      value_type: double
+    attributes: [ direction ]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.resource_pool.disk.throttled.read.rate:
     enabled: false
     description: The number of read operations that were throttled in the last second
@@ -334,7 +339,7 @@ metrics:
     description: The number of unrestricted full table or index scans.
     unit: "{scans}/s"
     gauge:
-      value_type: int
+      value_type: double
     attributes: []
   sqlserver.index.search.rate:
     enabled: false
@@ -425,3 +430,7 @@ tests:
   goleak:
     ignore:
       any: "github.com/godbus/dbus.(*Conn).inWorker"
+      top:
+        # Can be removed once the following issue is resolved:
+        # https://github.com/snowflakedb/gosnowflake/issues/1369
+        - "github.com/snowflakedb/gosnowflake.initOCSPCacheClearer.func1"

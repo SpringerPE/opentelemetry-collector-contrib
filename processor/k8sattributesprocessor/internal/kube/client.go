@@ -12,10 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/distribution/reference"
 	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/featuregate"
-	conventions "go.opentelemetry.io/collector/semconv/v1.6.1"
+	conventions "go.opentelemetry.io/otel/semconv/v1.6.1"
 	"go.uber.org/zap"
 	apps_v1 "k8s.io/api/apps/v1"
 	api_v1 "k8s.io/api/core/v1"
@@ -26,16 +24,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	dcommon "github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/docker"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/k8sconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/k8sattributesprocessor/internal/metadata"
-)
-
-var enableRFC3339Timestamp = featuregate.GlobalRegistry().MustRegister(
-	"k8sattr.rfc3339",
-	featuregate.StageStable,
-	featuregate.WithRegisterDescription("When enabled, uses RFC3339 format for k8s.pod.start_time value"),
-	featuregate.WithRegisterFromVersion("v0.82.0"),
-	featuregate.WithRegisterToVersion("v0.102.0"),
 )
 
 // WatchClient is the main interface provided by this package to a kubernetes cluster.
@@ -460,7 +451,7 @@ func (c *WatchClient) GetNode(nodeName string) (*Node, bool) {
 func (c *WatchClient) extractPodAttributes(pod *api_v1.Pod) map[string]string {
 	tags := map[string]string{}
 	if c.Rules.PodName {
-		tags[conventions.AttributeK8SPodName] = pod.Name
+		tags[string(conventions.K8SPodNameKey)] = pod.Name
 	}
 
 	if c.Rules.PodHostName {
@@ -472,27 +463,23 @@ func (c *WatchClient) extractPodAttributes(pod *api_v1.Pod) map[string]string {
 	}
 
 	if c.Rules.Namespace {
-		tags[conventions.AttributeK8SNamespaceName] = pod.GetNamespace()
+		tags[string(conventions.K8SNamespaceNameKey)] = pod.GetNamespace()
 	}
 
 	if c.Rules.StartTime {
 		ts := pod.GetCreationTimestamp()
 		if !ts.IsZero() {
-			if enableRFC3339Timestamp.IsEnabled() {
-				if rfc3339ts, err := ts.MarshalText(); err != nil {
-					c.logger.Error("failed to unmarshal pod creation timestamp", zap.Error(err))
-				} else {
-					tags[tagStartTime] = string(rfc3339ts)
-				}
+			if rfc3339ts, err := ts.MarshalText(); err != nil {
+				c.logger.Error("failed to unmarshal pod creation timestamp", zap.Error(err))
 			} else {
-				tags[tagStartTime] = ts.String()
+				tags[tagStartTime] = string(rfc3339ts)
 			}
 		}
 	}
 
 	if c.Rules.PodUID {
 		uid := pod.GetUID()
-		tags[conventions.AttributeK8SPodUID] = string(uid)
+		tags[string(conventions.K8SPodUIDKey)] = string(uid)
 	}
 
 	if c.Rules.ReplicaSetID || c.Rules.ReplicaSetName ||
@@ -505,51 +492,51 @@ func (c *WatchClient) extractPodAttributes(pod *api_v1.Pod) map[string]string {
 			switch ref.Kind {
 			case "ReplicaSet":
 				if c.Rules.ReplicaSetID {
-					tags[conventions.AttributeK8SReplicaSetUID] = string(ref.UID)
+					tags[string(conventions.K8SReplicaSetUIDKey)] = string(ref.UID)
 				}
 				if c.Rules.ReplicaSetName {
-					tags[conventions.AttributeK8SReplicaSetName] = ref.Name
+					tags[string(conventions.K8SReplicaSetNameKey)] = ref.Name
 				}
 				if c.Rules.DeploymentName {
 					if replicaset, ok := c.getReplicaSet(string(ref.UID)); ok {
 						if replicaset.Deployment.Name != "" {
-							tags[conventions.AttributeK8SDeploymentName] = replicaset.Deployment.Name
+							tags[string(conventions.K8SDeploymentNameKey)] = replicaset.Deployment.Name
 						}
 					}
 				}
 				if c.Rules.DeploymentUID {
 					if replicaset, ok := c.getReplicaSet(string(ref.UID)); ok {
 						if replicaset.Deployment.Name != "" {
-							tags[conventions.AttributeK8SDeploymentUID] = replicaset.Deployment.UID
+							tags[string(conventions.K8SDeploymentUIDKey)] = replicaset.Deployment.UID
 						}
 					}
 				}
 			case "DaemonSet":
 				if c.Rules.DaemonSetUID {
-					tags[conventions.AttributeK8SDaemonSetUID] = string(ref.UID)
+					tags[string(conventions.K8SDaemonSetUIDKey)] = string(ref.UID)
 				}
 				if c.Rules.DaemonSetName {
-					tags[conventions.AttributeK8SDaemonSetName] = ref.Name
+					tags[string(conventions.K8SDaemonSetNameKey)] = ref.Name
 				}
 			case "StatefulSet":
 				if c.Rules.StatefulSetUID {
-					tags[conventions.AttributeK8SStatefulSetUID] = string(ref.UID)
+					tags[string(conventions.K8SStatefulSetUIDKey)] = string(ref.UID)
 				}
 				if c.Rules.StatefulSetName {
-					tags[conventions.AttributeK8SStatefulSetName] = ref.Name
+					tags[string(conventions.K8SStatefulSetNameKey)] = ref.Name
 				}
 			case "Job":
 				if c.Rules.CronJobName {
 					parts := c.cronJobRegex.FindStringSubmatch(ref.Name)
 					if len(parts) == 2 {
-						tags[conventions.AttributeK8SCronJobName] = parts[1]
+						tags[string(conventions.K8SCronJobNameKey)] = parts[1]
 					}
 				}
 				if c.Rules.JobUID {
-					tags[conventions.AttributeK8SJobUID] = string(ref.UID)
+					tags[string(conventions.K8SJobUIDKey)] = string(ref.UID)
 				}
 				if c.Rules.JobName {
-					tags[conventions.AttributeK8SJobName] = ref.Name
+					tags[string(conventions.K8SJobNameKey)] = ref.Name
 				}
 			}
 		}
@@ -672,30 +659,6 @@ func removeUnnecessaryPodData(pod *api_v1.Pod, rules ExtractionRules) *api_v1.Po
 	return &transformedPod
 }
 
-// parseNameAndTagFromImage parses the image name and tag for differently-formatted image names.
-// returns "latest" as the default if tag not present. also checks if the image contains a digest.
-// if it does, no latest tag is assumed.
-func parseNameAndTagFromImage(image string) (name, tag string, err error) {
-	ref, err := reference.Parse(image)
-	if err != nil {
-		return
-	}
-	namedRef, ok := ref.(reference.Named)
-	if !ok {
-		return "", "", errors.New("cannot retrieve image name")
-	}
-	name = namedRef.Name()
-	if taggedRef, ok := namedRef.(reference.Tagged); ok {
-		tag = taggedRef.Tag()
-	}
-	if tag == "" {
-		if digestedRef, ok := namedRef.(reference.Digested); !ok || digestedRef.String() == "" {
-			tag = "latest"
-		}
-	}
-	return
-}
-
 func (c *WatchClient) extractPodContainersAttributes(pod *api_v1.Pod) PodContainers {
 	containers := PodContainers{
 		ByID:   map[string]*Container{},
@@ -707,13 +670,13 @@ func (c *WatchClient) extractPodContainersAttributes(pod *api_v1.Pod) PodContain
 	if c.Rules.ContainerImageName || c.Rules.ContainerImageTag {
 		for _, spec := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
 			container := &Container{}
-			name, tag, err := parseNameAndTagFromImage(spec.Image)
+			imageRef, err := dcommon.ParseImageName(spec.Image)
 			if err == nil {
 				if c.Rules.ContainerImageName {
-					container.ImageName = name
+					container.ImageName = imageRef.Repository
 				}
 				if c.Rules.ContainerImageTag {
-					container.ImageTag = tag
+					container.ImageTag = imageRef.Tag
 				}
 			}
 			containers.ByName[spec.Name] = container
@@ -745,12 +708,8 @@ func (c *WatchClient) extractPodContainersAttributes(pod *api_v1.Pod) PodContain
 			}
 
 			if c.Rules.ContainerImageRepoDigests {
-				if parsed, err := reference.ParseAnyReference(apiStatus.ImageID); err == nil {
-					switch parsed.(type) {
-					case reference.Canonical:
-						containerStatus.ImageRepoDigest = parsed.String()
-					default:
-					}
+				if canonicalRef, err := dcommon.CanonicalImageRef(apiStatus.ImageID); err == nil {
+					containerStatus.ImageRepoDigest = canonicalRef
 				}
 			}
 
@@ -819,8 +778,8 @@ func (c *WatchClient) getIdentifiersFromAssoc(pod *Pod) []PodIdentifier {
 		skip := false
 		for i, source := range assoc.Sources {
 			// If association configured to take IP address from connection
-			switch {
-			case source.From == ConnectionSource:
+			switch source.From {
+			case ConnectionSource:
 				if pod.Address == "" {
 					skip = true
 					break
@@ -834,16 +793,16 @@ func (c *WatchClient) getIdentifiersFromAssoc(pod *Pod) []PodIdentifier {
 					break
 				}
 				ret[i] = PodIdentifierAttributeFromSource(source, pod.Address)
-			case source.From == ResourceSource:
+			case ResourceSource:
 				attr := ""
 				switch source.Name {
-				case conventions.AttributeK8SNamespaceName:
+				case string(conventions.K8SNamespaceNameKey):
 					attr = pod.Namespace
-				case conventions.AttributeK8SPodName:
+				case string(conventions.K8SPodNameKey):
 					attr = pod.Name
-				case conventions.AttributeK8SPodUID:
+				case string(conventions.K8SPodUIDKey):
 					attr = pod.PodUID
-				case conventions.AttributeHostName:
+				case string(conventions.HostNameKey):
 					attr = pod.Address
 				// k8s.pod.ip is set by passthrough mode
 				case K8sIPLabelName:
@@ -870,7 +829,7 @@ func (c *WatchClient) getIdentifiersFromAssoc(pod *Pod) []PodIdentifier {
 	// Ensure backward compatibility
 	if pod.PodUID != "" {
 		ids = append(ids, PodIdentifier{
-			PodIdentifierAttributeFromResourceAttribute(conventions.AttributeK8SPodUID, pod.PodUID),
+			PodIdentifierAttributeFromResourceAttribute(string(conventions.K8SPodUIDKey), pod.PodUID),
 		})
 	}
 

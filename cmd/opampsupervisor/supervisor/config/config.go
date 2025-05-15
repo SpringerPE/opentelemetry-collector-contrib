@@ -21,7 +21,7 @@ import (
 	"go.opentelemetry.io/collector/confmap/provider/envprovider"
 	"go.opentelemetry.io/collector/confmap/provider/fileprovider"
 	"go.opentelemetry.io/collector/service/telemetry"
-	config "go.opentelemetry.io/contrib/config/v0.3.0"
+	config "go.opentelemetry.io/contrib/otelconf/v0.3.0"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -185,7 +185,6 @@ type Agent struct {
 	Description             AgentDescription  `mapstructure:"description"`
 	ConfigApplyTimeout      time.Duration     `mapstructure:"config_apply_timeout"`
 	BootstrapTimeout        time.Duration     `mapstructure:"bootstrap_timeout"`
-	HealthCheckPort         int               `mapstructure:"health_check_port"`
 	OpAMPServerPort         int               `mapstructure:"opamp_server_port"`
 	PassthroughLogs         bool              `mapstructure:"passthrough_logs"`
 	ConfigFiles             []string          `mapstructure:"config_files"`
@@ -200,10 +199,6 @@ func (a Agent) Validate() error {
 
 	if a.BootstrapTimeout <= 0 {
 		return errors.New("agent::bootstrap_timeout must be positive")
-	}
-
-	if a.HealthCheckPort < 0 || a.HealthCheckPort > 65535 {
-		return errors.New("agent::health_check_port must be a valid port number")
 	}
 
 	if a.OpAMPServerPort < 0 || a.OpAMPServerPort > 65535 {
@@ -244,6 +239,9 @@ type Telemetry struct {
 type Logs struct {
 	Level       zapcore.Level `mapstructure:"level"`
 	OutputPaths []string      `mapstructure:"output_paths"`
+	// Processors allow configuration of log record processors to emit logs to
+	// any number of supported backends.
+	Processors []config.LogRecordProcessor `mapstructure:"processors,omitempty"`
 }
 
 type Metrics struct {

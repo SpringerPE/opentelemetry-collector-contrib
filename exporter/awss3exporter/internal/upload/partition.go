@@ -34,9 +34,9 @@ type PartitionKeyBuilder struct {
 	// Expected to be one of "metrics", "traces", or "logs"
 	Metadata string
 	// Compression defines algorithm used on the
-	// body before uploaded.
+	// body before upload.
 	Compression configcompression.Type
-	// UniqueKeyFunc allows for overwritting the default behavior of
+	// UniqueKeyFunc allows for overwriting the default behavior of
 	// generating a new unique string to avoid collisions on file upload
 	// across many different instances.
 	//
@@ -44,13 +44,17 @@ type PartitionKeyBuilder struct {
 	UniqueKeyFunc func() string
 }
 
-func (pki *PartitionKeyBuilder) Build(ts time.Time) string {
-	return pki.bucketKeyPrefix(ts) + "/" + pki.fileName()
+func (pki *PartitionKeyBuilder) Build(ts time.Time, overridePrefix string) string {
+	return pki.bucketKeyPrefix(ts, overridePrefix) + "/" + pki.fileName()
 }
 
-func (pki *PartitionKeyBuilder) bucketKeyPrefix(ts time.Time) string {
+func (pki *PartitionKeyBuilder) bucketKeyPrefix(ts time.Time, overridePrefix string) string {
 	// Don't want to overwrite the actual value
 	prefix := pki.PartitionPrefix
+	// Only override when it's not empty string
+	if overridePrefix != "" {
+		prefix = overridePrefix
+	}
 	if prefix != "" {
 		prefix += "/"
 	}

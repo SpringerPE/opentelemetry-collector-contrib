@@ -468,6 +468,8 @@ Available Converters:
 - [Format](#format)
 - [FormatTime](#formattime)
 - [GetXML](#getxml)
+- [HasPrefix](#hasprefix)
+- [HasSuffix](#hassuffix)
 - [Hex](#hex)
 - [Hour](#hour)
 - [Hours](#hours)
@@ -483,12 +485,15 @@ Available Converters:
 - [IsString](#isstring)
 - [Len](#len)
 - [Log](#log)
+- [IsValidLuhn](#isvalidluhn)
 - [MD5](#md5)
 - [Microseconds](#microseconds)
 - [Milliseconds](#milliseconds)
 - [Minute](#minute)
 - [Minutes](#minutes)
 - [Month](#month)
+- [Murmur3Hash](#murmur3hash)
+- [Murmur3Hash128](#murmur3hash128)
 - [Nanosecond](#nanosecond)
 - [Nanoseconds](#nanoseconds)
 - [Now](#now)
@@ -497,6 +502,7 @@ Available Converters:
 - [ParseKeyValue](#parsekeyvalue)
 - [ParseSimplifiedXML](#parsesimplifiedxml)
 - [ParseXML](#parsexml)
+- [ProfileID](#profileid)
 - [RemoveXML](#removexml)
 - [Second](#second)
 - [Seconds](#seconds)
@@ -551,7 +557,7 @@ Examples:
 The `Decode` Converter takes a string or byte array encoded with the specified encoding and returns the decoded string.
 
 `value` is a valid encoded string or byte array.
-`encoding` is a valid encoding name included in the [IANA encoding index](https://www.iana.org/assignments/character-sets/character-sets.xhtml).
+`encoding` is a valid encoding name included in the [IANA encoding index](https://www.iana.org/assignments/character-sets/character-sets.xhtml) or one of `base64`, `base64-raw`, `base64-url` or `base64-raw-url`.
 
 Examples:
 
@@ -955,6 +961,44 @@ Get `bar` from `<a foo="bar"/>`
 
 - `GetXML(log.body, "/a/@foo")`
 
+### HasPrefix
+
+`HasPrefix(value, prefix)`
+
+The `HasPrefix` function returns a boolean value indicating whether a given string `value` begins with a given `prefix`.
+
+The returned type is `bool`.
+
+If the `value` is not a string or does not exist, the `HasPrefix` converter will return an error.
+
+The `value` is either a path expression to a telemetry field to retrieve or a literal.
+
+Examples:
+
+- `HasPrefix(resource.attributes["service.name"], "ingest_")`
+
+
+- `HasPrefix("ingest_service", "ingest_")`
+
+### HasSuffix
+
+`HasSuffix(value, suffix)`
+
+The `HasSuffix` function returns a boolean value indicating whether a given string `value` ends with a given `suffix`.
+
+The returned type is `bool`.
+
+If the `value` is not a string or does not exist, the `HasSuffix` converter will return an error.
+
+The `value` is either a path expression to a telemetry field to retrieve or a literal.
+
+Examples:
+
+- `HasSuffix(resource.attributes["service.name"], "_service")`
+
+
+- `HasSuffix("ingest_service", "_service")`
+
 ### Hex
 
 `Hex(value)`
@@ -1255,6 +1299,21 @@ Examples:
 
 - `Int(Log(span.attributes["duration_ms"])`
 
+### IsValidLuhn
+
+`IsValidLuhn(value)`
+
+The `IsValidLuhn` converter returns a `boolean` value that indicates whether the value is a valid identification number,
+such as a credit card number according to the [Luhn algorithm](https://en.wikipedia.org/wiki/Luhn_algorithm).
+
+The value must either be a `string` consisting of digits only, or an `integer` number. If it is neither, an error will be returned.
+
+Examples:
+
+- `IsValidLuhn(span.attributes["credit_card_number"])`
+
+- `IsValidLuhn("17893729974")`
+
 ### MD5
 
 `MD5(value)`
@@ -1344,6 +1403,34 @@ The returned type is `int64`.
 Examples:
 
 - `Month(Now())`
+
+### Murmur3Hash
+
+`Murmur3Hash(target)`
+
+The `Murmur3Hash` Converter converts the `target` string to a hexadecimal string in little-endian of the 32-bit Murmur3 hash.
+
+`target` is a Getter that returns a string.
+
+The returned type is `string`.
+
+Examples:
+
+- `Murmur3Hash(attributes["order.productId"])`
+
+### Murmur3Hash128
+
+`Murmur3Hash128(target)`
+
+The `Murmur3Hash128` Converter converts the `target` string to a hexadecimal string in little-endian of the 128-bit Murmur3 hash.
+
+`target` is a Getter that returns a string.
+
+The returned type is `string`.
+
+Examples:
+
+- `Murmur3Hash128(attributes["order.productId"])`
 
 ### Nanosecond
 
@@ -1667,6 +1754,18 @@ Examples:
 - `ParseXML(log.attributes["xml"])`
 
 - `ParseXML("<HostInfo hostname=\"example.com\" zone=\"east-1\" cloudprovider=\"aws\" />")`
+
+### ProfileID
+
+`ProfileID(bytes)`
+
+The `ProfileID` Converter returns a `pprofile.ProfileID` struct from the given byte slice.
+
+`bytes` is a byte slice of exactly 16 bytes.
+
+Examples:
+
+- `ProfileID(0x00112233445566778899aabbccddeeff)`
 
 ### RemoveXML
 

@@ -23,9 +23,9 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	semconv "go.opentelemetry.io/collector/semconv/v1.25.0"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata/metricdatatest"
+	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 	"go.uber.org/zap/zaptest"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/connector/servicegraphconnector/internal/metadata"
@@ -305,7 +305,7 @@ func buildSampleTrace(t *testing.T, attrValue string) ptrace.Traces {
 	traces := ptrace.NewTraces()
 
 	resourceSpans := traces.ResourceSpans().AppendEmpty()
-	resourceSpans.Resource().Attributes().PutStr(semconv.AttributeServiceName, "some-service")
+	resourceSpans.Resource().Attributes().PutStr(string(semconv.ServiceNameKey), "some-service")
 
 	scopeSpans := resourceSpans.ScopeSpans().AppendEmpty()
 
@@ -346,7 +346,7 @@ func incompleteClientTraces() ptrace.Traces {
 	traces := ptrace.NewTraces()
 
 	resourceSpans := traces.ResourceSpans().AppendEmpty()
-	resourceSpans.Resource().Attributes().PutStr(semconv.AttributeServiceName, "some-client-service")
+	resourceSpans.Resource().Attributes().PutStr(string(semconv.ServiceNameKey), "some-client-service")
 
 	scopeSpans := resourceSpans.ScopeSpans().AppendEmpty()
 	anotherTraceID := pcommon.TraceID([16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16})
@@ -358,7 +358,7 @@ func incompleteClientTraces() ptrace.Traces {
 	clientSpanNoServerSpan.SetKind(ptrace.SpanKindClient)
 	clientSpanNoServerSpan.SetStartTimestamp(pcommon.NewTimestampFromTime(tStart))
 	clientSpanNoServerSpan.SetEndTimestamp(pcommon.NewTimestampFromTime(tEnd))
-	clientSpanNoServerSpan.Attributes().PutStr(semconv.AttributePeerService, "AuthTokenCache") // Attribute selected as dimension for metrics
+	clientSpanNoServerSpan.Attributes().PutStr(string(semconv.PeerServiceKey), "AuthTokenCache") // Attribute selected as dimension for metrics
 
 	return traces
 }
@@ -370,7 +370,7 @@ func incompleteServerTraces(withParentSpan bool) ptrace.Traces {
 	traces := ptrace.NewTraces()
 
 	resourceSpans := traces.ResourceSpans().AppendEmpty()
-	resourceSpans.Resource().Attributes().PutStr(semconv.AttributeServiceName, "some-server-service")
+	resourceSpans.Resource().Attributes().PutStr(string(semconv.ServiceNameKey), "some-server-service")
 	scopeSpans := resourceSpans.ScopeSpans().AppendEmpty()
 	anotherTraceID := pcommon.TraceID([16]byte{1, 2, 3, 4, 5, 6, 7, 8, 8, 7, 6, 5, 4, 3, 2, 1})
 	serverSpanNoClientSpan := scopeSpans.Spans().AppendEmpty()
@@ -602,11 +602,13 @@ func TestValidateOwnTelemetry(t *testing.T) {
 }
 
 func TestExtraDimensionsLabels(t *testing.T) {
+	t.Skip("https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/39210")
 	extraDimensions := []string{"db.system", "messaging.system"}
 	cfg := &Config{
 		Dimensions:              extraDimensions,
 		LatencyHistogramBuckets: []time.Duration{time.Duration(0.1 * float64(time.Second)), time.Duration(1 * float64(time.Second)), time.Duration(10 * float64(time.Second))},
 		Store:                   StoreConfig{MaxItems: 10},
+		MetricsFlushInterval:    ptr(0 * time.Millisecond),
 	}
 
 	set := componenttest.NewNopTelemetrySettings()
@@ -644,8 +646,7 @@ func TestVirtualNodeServerLabels(t *testing.T) {
 		Store:                     StoreConfig{MaxItems: 10},
 		VirtualNodePeerAttributes: virtualNodeDimensions,
 		VirtualNodeExtraLabel:     true,
-		// Reduce flush interval for faster test execution
-		MetricsFlushInterval: 10 * time.Millisecond,
+		MetricsFlushInterval:      ptr(time.Millisecond),
 	}
 
 	set := componenttest.NewNopTelemetrySettings()
@@ -679,6 +680,9 @@ func TestVirtualNodeServerLabels(t *testing.T) {
 	err = pmetrictest.CompareMetrics(expectedMetrics, metrics[0],
 		pmetrictest.IgnoreStartTimestamp(),
 		pmetrictest.IgnoreTimestamp(),
+		pmetrictest.IgnoreScopeMetricsOrder(),
+		pmetrictest.IgnoreMetricsOrder(),
+		pmetrictest.IgnoreMetricDataPointsOrder(),
 	)
 	require.NoError(t, err)
 }
@@ -691,8 +695,7 @@ func TestVirtualNodeClientLabels(t *testing.T) {
 		Store:                     StoreConfig{MaxItems: 10},
 		VirtualNodePeerAttributes: virtualNodeDimensions,
 		VirtualNodeExtraLabel:     true,
-		// Reduce flush interval for faster test execution
-		MetricsFlushInterval: 1 * time.Millisecond,
+		MetricsFlushInterval:      ptr(time.Millisecond),
 	}
 
 	set := componenttest.NewNopTelemetrySettings()
@@ -728,4 +731,9 @@ func TestVirtualNodeClientLabels(t *testing.T) {
 		pmetrictest.IgnoreTimestamp(),
 	)
 	require.NoError(t, err)
+}
+
+// ptr returns a pointer to the given value.
+func ptr[T any](value T) *T {
+	return &value
 }

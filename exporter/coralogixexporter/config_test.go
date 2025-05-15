@@ -20,7 +20,6 @@ import (
 	"go.opentelemetry.io/collector/config/configtls"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
 	"go.opentelemetry.io/collector/confmap/xconfmap"
-	"go.opentelemetry.io/collector/exporter/exporterbatcher"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 	"go.opentelemetry.io/collector/exporter/exportertest"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -91,14 +90,6 @@ func TestLoadConfig(t *testing.T) {
 					},
 					BalancerName: "",
 				},
-				BatcherConfig: exporterbatcher.Config{
-					Enabled:      false,
-					FlushTimeout: 200 * time.Millisecond,
-					SizeConfig: exporterbatcher.SizeConfig{
-						Sizer:   exporterbatcher.SizerTypeItems,
-						MinSize: 8192,
-					},
-				},
 			},
 		},
 		{
@@ -155,14 +146,6 @@ func TestLoadConfig(t *testing.T) {
 						"appName":      "APP_NAME",
 					},
 					BalancerName: "",
-				},
-				BatcherConfig: exporterbatcher.Config{
-					Enabled:      true,
-					FlushTimeout: 3 * time.Second,
-					SizeConfig: exporterbatcher.SizeConfig{
-						Sizer:   exporterbatcher.SizerTypeItems,
-						MinSize: 8888,
-					},
 				},
 			},
 		},
@@ -340,9 +323,11 @@ func TestCreateExportersWithBatcher(t *testing.T) {
 	cfg.Domain = "localhost"
 	cfg.PrivateKey = "test-key"
 	cfg.AppName = "test-app"
-	cfg.BatcherConfig.Enabled = true
-	cfg.BatcherConfig.FlushTimeout = 1 * time.Second
-	cfg.BatcherConfig.MinSize = 100
+	cfg.QueueSettings.Enabled = true
+	cfg.QueueSettings.Batch = &exporterhelper.BatchConfig{
+		FlushTimeout: 1 * time.Second,
+		MinSize:      100,
+	}
 
 	// Test traces exporter
 	t.Run("traces_with_batcher", func(t *testing.T) {

@@ -254,7 +254,7 @@ The number of unrestricted full table or index scans.
 
 | Unit | Metric Type | Value Type |
 | ---- | ----------- | ---------- |
-| {scans}/s | Gauge | Int |
+| {scans}/s | Gauge | Double |
 
 ### sqlserver.database.io
 
@@ -430,6 +430,22 @@ Throughput rate of replica data.
 | Name | Description | Values |
 | ---- | ----------- | ------ |
 | replica.direction | The direction of flow of bytes for replica. | Str: ``transmit``, ``receive`` |
+
+### sqlserver.resource_pool.disk.operations
+
+The rate of operations issued.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type |
+| ---- | ----------- | ---------- |
+| {operations}/s | Gauge | Double |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| direction | The direction of flow of bytes or operations. | Str: ``read``, ``write`` |
 
 ### sqlserver.resource_pool.disk.throttled.read.rate
 

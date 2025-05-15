@@ -9,6 +9,8 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
+
+	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
 )
 
@@ -56,6 +58,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					SqlserverPageSplitRate:                      MetricConfig{Enabled: true},
 					SqlserverProcessesBlocked:                   MetricConfig{Enabled: true},
 					SqlserverReplicaDataRate:                    MetricConfig{Enabled: true},
+					SqlserverResourcePoolDiskOperations:         MetricConfig{Enabled: true},
 					SqlserverResourcePoolDiskThrottledReadRate:  MetricConfig{Enabled: true},
 					SqlserverResourcePoolDiskThrottledWriteRate: MetricConfig{Enabled: true},
 					SqlserverTableCount:                         MetricConfig{Enabled: true},
@@ -115,6 +118,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					SqlserverPageSplitRate:                      MetricConfig{Enabled: false},
 					SqlserverProcessesBlocked:                   MetricConfig{Enabled: false},
 					SqlserverReplicaDataRate:                    MetricConfig{Enabled: false},
+					SqlserverResourcePoolDiskOperations:         MetricConfig{Enabled: false},
 					SqlserverResourcePoolDiskThrottledReadRate:  MetricConfig{Enabled: false},
 					SqlserverResourcePoolDiskThrottledWriteRate: MetricConfig{Enabled: false},
 					SqlserverTableCount:                         MetricConfig{Enabled: false},
@@ -155,7 +159,7 @@ func loadMetricsBuilderConfig(t *testing.T, name string) MetricsBuilderConfig {
 	sub, err := cm.Sub(name)
 	require.NoError(t, err)
 	cfg := DefaultMetricsBuilderConfig()
-	require.NoError(t, sub.Unmarshal(&cfg))
+	require.NoError(t, sub.Unmarshal(&cfg, confmap.WithIgnoreUnused()))
 	return cfg
 }
 

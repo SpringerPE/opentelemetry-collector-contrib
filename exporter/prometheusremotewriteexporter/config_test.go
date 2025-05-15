@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/prometheus/prometheus/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
@@ -81,7 +82,7 @@ func TestLoadConfig(t *testing.T) {
 				TargetInfo: &TargetInfo{
 					Enabled: true,
 				},
-				CreatedMetric: &CreatedMetric{Enabled: true},
+				RemoteWriteProtoMsg: config.RemoteWriteProtoMsgV1,
 			},
 		},
 		{
@@ -95,6 +96,10 @@ func TestLoadConfig(t *testing.T) {
 		{
 			id:           component.NewIDWithName(metadata.Type, "less_than_1_max_batch_request_parallelism"),
 			errorMessage: "max_batch_request_parallelism can't be set to below 1",
+		},
+		{
+			id:           component.NewIDWithName(metadata.Type, "non_snappy_compression_type"),
+			errorMessage: "compression type must be snappy",
 		},
 	}
 
