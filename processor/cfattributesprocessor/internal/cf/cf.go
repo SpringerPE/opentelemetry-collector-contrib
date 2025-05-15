@@ -44,6 +44,10 @@ type Client struct {
 	authSecret string
 }
 
+type bigcacheLogger struct {
+	l *zap.SugaredLogger
+}
+
 // New initializes a new CF Client with caching .
 func New(ctx context.Context, logger *zap.Logger, endpoint string, options ...func(*Client)) (*Client, error) {
 	var err error
@@ -99,13 +103,21 @@ func WithCacheTTL(cacheTTL time.Duration) func(*Client) {
 	}
 }
 
+func (log *bigcacheLogger) Printf(format string, v ...interface{}) {
+	log.l.Infof(format, v...)
+}
+
 func (cfCli *Client) newCache() (*bigcache.BigCache, error) {
+	logger := &bigcacheLogger{
+		l: cfCli.logger.Sugar(),
+	}
 	config := bigcache.Config{
 		Shards:           bigcacheShards,
 		LifeWindow:       cfCli.cacheTTL,
 		CleanWindow:      bigcacheCleanWindow,
 		HardMaxCacheSize: 0,
 		Verbose:          bigcacheVerbose,
+		Logger:           logger,
 	}
 	cache, err := bigcache.New(cfCli.ctx, config)
 	if err != nil {

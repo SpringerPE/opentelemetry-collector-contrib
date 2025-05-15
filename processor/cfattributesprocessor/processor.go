@@ -84,6 +84,38 @@ func (cfap *cfAttributesProcessor) processTraces(ctx context.Context, td ptrace.
 	return td, nil
 }
 
+func (cfap *cfAttributesProcessor) getSpaceID(resource pcommon.Resource) string {
+	spaceIdentifierValue := ""
+	if val, ok := resource.Attributes().Get(cfap.config.SpaceIDAttributeKeyAssociation); ok {
+		if val.Type() == pcommon.ValueTypeStr {
+			spaceIdentifierValue = val.Str()
+		}
+	}
+	return spaceIdentifierValue
+}
+
+func (cfap *cfAttributesProcessor) processSpaceID(ctx context.Context, resource pcommon.Resource) error {
+	if spaceID := cfap.getSpaceID(resource); spaceID != "" {
+		spaceName, err := cfap.cfCli.GetSpaceName(spaceID)
+		if err != nil {
+			return err
+		}
+		resource.Attributes().PutStr(cfAttrNSPrefix+"space.name", spaceName)
+		if spaceLabels, spaceAnnotations, err := cfap.cfCli.GetSpaceMetadata(spaceID); err == nil {
+			for k, v := range spaceLabels {
+				resource.Attributes().PutStr(cfAttrNSPrefix+"space.labels."+k, *v)
+			}
+			for k, v := range spaceAnnotations {
+				resource.Attributes().PutStr(cfAttrNSPrefix+"space.annotations."+k, *v)
+			}
+		} else {
+			cfap.logger.Error(err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
 func (cfap *cfAttributesProcessor) getAppID(resource pcommon.Resource) string {
 	appIdentifierValue := ""
 	if val, ok := resource.Attributes().Get(cfap.config.AppIDAttributeKeyAssociation); ok {

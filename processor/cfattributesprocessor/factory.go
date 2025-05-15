@@ -18,8 +18,9 @@ var (
 )
 
 const (
-	defaultCacheTTL                = 10 * time.Minute
-	defaultAppIDAttrKeyAssociation = "app_id"
+	defaultCacheTTL                  = 10 * time.Minute
+	defaultAppIDAttrKeyAssociation   = "app_id"
+	defaultSpaceIDAttrKeyAssociation = "space_id"
 )
 
 func NewFactory() processor.Factory {
@@ -44,9 +45,10 @@ func createDefaultConfig() component.Config {
 		AppDates:          false,
 	}
 	return &Config{
-		CacheTTL:                     defaultCacheTTL,
-		Extract:                      extract,
-		AppIDAttributeKeyAssociation: defaultAppIDAttrKeyAssociation,
+		CacheTTL:                       defaultCacheTTL,
+		Extract:                        extract,
+		AppIDAttributeKeyAssociation:   defaultAppIDAttrKeyAssociation,
+		SpaceIDAttributeKeyAssociation: defaultSpaceIDAttrKeyAssociation,
 	}
 }
 
@@ -57,7 +59,7 @@ func createMetricsProcessor(
 	nextConsumer consumer.Metrics,
 ) (processor.Metrics, error) {
 	processorConfig := cfg.(*Config)
-	metricsProcessor := newCFAttributesProcessor(processorConfig, set.Logger)
+	metricsProcessor := newCFAttributesProcessor(processorConfig, set.Logger.Named("metrics"))
 	return processorhelper.NewMetrics(
 		ctx,
 		set,
@@ -77,7 +79,7 @@ func createLogsProcessor(
 	nextConsumer consumer.Logs,
 ) (processor.Logs, error) {
 	processorConfig := cfg.(*Config)
-	logsProcessor := newCFAttributesProcessor(processorConfig, set.Logger)
+	logsProcessor := newCFAttributesProcessor(processorConfig, set.Logger.Named("logs"))
 	return processorhelper.NewLogs(
 		ctx,
 		set,
@@ -97,7 +99,7 @@ func createTracesProcessor(
 	nextConsumer consumer.Traces,
 ) (processor.Traces, error) {
 	processorConfig := cfg.(*Config)
-	tracesProcessor := newCFAttributesProcessor(processorConfig, set.Logger)
+	tracesProcessor := newCFAttributesProcessor(processorConfig, set.Logger.Named("traces"))
 	return processorhelper.NewTraces(
 		ctx,
 		set,

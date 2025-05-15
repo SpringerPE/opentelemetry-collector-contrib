@@ -25,6 +25,10 @@ type Config struct {
 	// Default: "app_id"
 	AppIDAttributeKeyAssociation string `mapstructure:"appid_attribute_association"`
 
+	// Defines the resource attribute key where the CF App guid is defined
+	// Default: "space_id"
+	SpaceIDAttributeKeyAssociation string `mapstructure:"spaceid_attribute_association"`
+
 	// CacheTTL determines the time that CF objects (app, space, org) are kept in cache
 	// to avoid querying the CF API. This setting impacts the metadata being changed by the
 	// user.
