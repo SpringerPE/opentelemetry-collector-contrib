@@ -25,8 +25,11 @@ const (
 	authTypeToken CfAuthType = "token"
 	// BigCache config
 	// number of shards (must be a power of 2)
-	bigcacheShards  = 1024
-	bigcacheVerbose = true
+	bigcacheShards             = 2048
+	bigcacheVerbose            = true
+	bigcacheMaxEntriesInWindow = 200000
+	bigcacheMaxEntrySize       = 1024
+	bigcacheStatsEnabled       = false
 	// Interval between removing expired entries (clean up).
 	bigcacheCleanWindow = 1 * time.Minute
 )
@@ -112,12 +115,15 @@ func (cfCli *Client) newCache() (*bigcache.BigCache, error) {
 		l: cfCli.logger.Sugar(),
 	}
 	config := bigcache.Config{
-		Shards:           bigcacheShards,
-		LifeWindow:       cfCli.cacheTTL,
-		CleanWindow:      bigcacheCleanWindow,
-		HardMaxCacheSize: 0,
-		Verbose:          bigcacheVerbose,
-		Logger:           logger,
+		Shards:             bigcacheShards,
+		LifeWindow:         cfCli.cacheTTL,
+		CleanWindow:        bigcacheCleanWindow,
+		MaxEntriesInWindow: bigcacheMaxEntriesInWindow,
+		MaxEntrySize:       bigcacheMaxEntrySize,
+		StatsEnabled:       bigcacheStatsEnabled,
+		HardMaxCacheSize:   0,
+		Verbose:            bigcacheVerbose,
+		Logger:             logger,
 	}
 	cache, err := bigcache.New(cfCli.ctx, config)
 	if err != nil {
