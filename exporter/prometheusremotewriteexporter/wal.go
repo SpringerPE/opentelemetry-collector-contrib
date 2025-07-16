@@ -15,9 +15,73 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/tidwall/wal"
+	"go.opentelemetry.io/collector/exporter"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter/internal/metadata"
 )
+
+type prwWalTelemetry interface {
+	recordWALWriteLatency(ctx context.Context, durationMs int64)
+	recordWALWrites(ctx context.Context)
+	recordWALWritesFailures(ctx context.Context)
+	recordWALReadLatency(ctx context.Context, durationMs int64)
+	recordWALReads(ctx context.Context)
+	recordWALReadsFailures(ctx context.Context)
+	recordWALBytesWritten(ctx context.Context, bytes int)
+	recordWALBytesRead(ctx context.Context, bytes int)
+}
+
+type prwWalTelemetryOTel struct {
+	telemetryBuilder *metadata.TelemetryBuilder
+	otelAttrs        []attribute.KeyValue
+}
+
+func (p *prwWalTelemetryOTel) recordWALWriteLatency(ctx context.Context, durationMs int64) {
+	p.telemetryBuilder.ExporterPrometheusremotewriteWalWriteLatency.Record(ctx, durationMs, metric.WithAttributes(p.otelAttrs...))
+}
+
+func (p *prwWalTelemetryOTel) recordWALWrites(ctx context.Context) {
+	p.telemetryBuilder.ExporterPrometheusremotewriteWalWrites.Add(ctx, 1, metric.WithAttributes(p.otelAttrs...))
+}
+
+func (p *prwWalTelemetryOTel) recordWALWritesFailures(ctx context.Context) {
+	p.telemetryBuilder.ExporterPrometheusremotewriteWalWritesFailures.Add(ctx, 1, metric.WithAttributes(p.otelAttrs...))
+}
+
+func (p *prwWalTelemetryOTel) recordWALReadLatency(ctx context.Context, durationMs int64) {
+	p.telemetryBuilder.ExporterPrometheusremotewriteWalReadLatency.Record(ctx, durationMs, metric.WithAttributes(p.otelAttrs...))
+}
+
+func (p *prwWalTelemetryOTel) recordWALReads(ctx context.Context) {
+	p.telemetryBuilder.ExporterPrometheusremotewriteWalReads.Add(ctx, 1, metric.WithAttributes(p.otelAttrs...))
+}
+
+func (p *prwWalTelemetryOTel) recordWALReadsFailures(ctx context.Context) {
+	p.telemetryBuilder.ExporterPrometheusremotewriteWalReadsFailures.Add(ctx, 1, metric.WithAttributes(p.otelAttrs...))
+}
+
+func (p *prwWalTelemetryOTel) recordWALBytesWritten(ctx context.Context, bytes int) {
+	p.telemetryBuilder.ExporterPrometheusremotewriteWalBytesWritten.Add(ctx, int64(bytes), metric.WithAttributes(p.otelAttrs...))
+}
+
+func (p *prwWalTelemetryOTel) recordWALBytesRead(ctx context.Context, bytes int) {
+	p.telemetryBuilder.ExporterPrometheusremotewriteWalBytesRead.Add(ctx, int64(bytes), metric.WithAttributes(p.otelAttrs...))
+}
+
+func newPRWWalTelemetry(set exporter.Settings) (prwWalTelemetry, error) {
+	telemetryBuilder, err := metadata.NewTelemetryBuilder(set.TelemetrySettings)
+	if err != nil {
+		return nil, err
+	}
+	return &prwWalTelemetryOTel{
+		telemetryBuilder: telemetryBuilder,
+		otelAttrs:        []attribute.KeyValue{},
+	}, nil
+}
 
 type prweWAL struct {
 	wg        sync.WaitGroup // wg waits for the go routines to finish.
@@ -33,6 +97,8 @@ type prweWAL struct {
 	rNotify   chan struct{}
 	rWALIndex *atomic.Uint64
 	wWALIndex *atomic.Uint64
+
+	telemetry prwWalTelemetry
 }
 
 const (
@@ -60,11 +126,16 @@ func (wc *WALConfig) truncateFrequency() time.Duration {
 	return defaultWALTruncateFrequency
 }
 
-func newWAL(walConfig *WALConfig, exportSink func(context.Context, []*prompb.WriteRequest) error) *prweWAL {
+func newWAL(walConfig *WALConfig, set exporter.Settings, exportSink func(context.Context, []*prompb.WriteRequest) error) (*prweWAL, error) {
 	if walConfig == nil {
 		// There are cases for which the WAL can be disabled.
 		// TODO: Perhaps log that the WAL wasn't enabled.
-		return nil
+		return nil, nil
+	}
+
+	telemetryPRWWal, err := newPRWWalTelemetry(set)
+	if err != nil {
+		return nil, err
 	}
 
 	return &prweWAL{
@@ -74,7 +145,8 @@ func newWAL(walConfig *WALConfig, exportSink func(context.Context, []*prompb.Wri
 		rNotify:    make(chan struct{}),
 		rWALIndex:  &atomic.Uint64{},
 		wWALIndex:  &atomic.Uint64{},
-	}
+		telemetry:  telemetryPRWWal,
+	}, nil
 }
 
 func (wc *WALConfig) createWAL() (*wal.Log, string, error) {
@@ -303,7 +375,7 @@ func (prweWAL *prweWAL) exportThenFrontTruncateWAL(ctx context.Context, reqL []*
 // persistToWAL is the routine that'll be hooked into the exporter's receiving side and it'll
 // write them to the Write-Ahead-Log so that shutdowns won't lose data, and that the routine that
 // reads from the WAL can then process the previously serialized requests.
-func (prweWAL *prweWAL) persistToWAL(requests []*prompb.WriteRequest) error {
+func (prweWAL *prweWAL) persistToWAL(ctx context.Context, requests []*prompb.WriteRequest) error {
 	prweWAL.mu.Lock()
 	defer prweWAL.mu.Unlock()
 
@@ -314,6 +386,7 @@ func (prweWAL *prweWAL) persistToWAL(requests []*prompb.WriteRequest) error {
 		if err != nil {
 			return err
 		}
+		prweWAL.telemetry.recordWALBytesWritten(ctx, len(protoBlob))
 		wIndex := prweWAL.wWALIndex.Add(1)
 		batch.Write(wIndex, protoBlob)
 	}
@@ -323,6 +396,7 @@ func (prweWAL *prweWAL) persistToWAL(requests []*prompb.WriteRequest) error {
 	case prweWAL.rNotify <- struct{}{}:
 	default:
 	}
+
 	return prweWAL.wal.WriteBatch(batch)
 }
 
@@ -346,7 +420,12 @@ func (prweWAL *prweWAL) readPrompbFromWAL(ctx context.Context, index uint64) (wr
 		if prweWAL.wal == nil {
 			return nil, errors.New("attempt to read from closed WAL")
 		}
+		prweWAL.telemetry.recordWALReads(ctx)
+		start := time.Now()
 		protoBlob, err = prweWAL.wal.Read(index)
+		duration := time.Since(start)
+		prweWAL.telemetry.recordWALReadLatency(ctx, duration.Milliseconds())
+		prweWAL.telemetry.recordWALBytesRead(ctx, len(protoBlob))
 		if err == nil { // The read succeeded.
 			req := new(prompb.WriteRequest)
 			if err = proto.Unmarshal(protoBlob, req); err != nil {
@@ -360,7 +439,6 @@ func (prweWAL *prweWAL) readPrompbFromWAL(ctx context.Context, index uint64) (wr
 			return req, nil
 		}
 		prweWAL.mu.Unlock()
-
 		// If WAL was empty, let's wait for a notification from
 		// the writer go routine.
 		if errors.Is(err, wal.ErrNotFound) {
@@ -374,6 +452,8 @@ func (prweWAL *prweWAL) readPrompbFromWAL(ctx context.Context, index uint64) (wr
 		}
 
 		if !errors.Is(err, wal.ErrNotFound) {
+			// record all failures apart ErrNotFound
+			prweWAL.telemetry.recordWALReadsFailures(ctx)
 			return nil, err
 		}
 	}

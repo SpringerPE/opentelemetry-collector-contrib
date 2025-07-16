@@ -37,3 +37,67 @@ Number of Prometheus time series that were translated from OTel metrics
 | Unit | Metric Type | Value Type | Monotonic |
 | ---- | ----------- | ---------- | --------- |
 | 1 | Sum | Int | true |
+
+### otelcol_exporter_prometheusremotewrite_wal_bytes_read
+
+Total number of bytes read from the WAL
+
+| Unit | Metric Type | Value Type | Monotonic |
+| ---- | ----------- | ---------- | --------- |
+| By | Sum | Int | true |
+
+### otelcol_exporter_prometheusremotewrite_wal_bytes_written
+
+Total number of bytes written to the WAL
+
+| Unit | Metric Type | Value Type | Monotonic |
+| ---- | ----------- | ---------- | --------- |
+| By | Sum | Int | true |
+
+### otelcol_exporter_prometheusremotewrite_wal_read_latency
+
+Response latency in ms for the WAL reads.
+
+| Unit | Metric Type | Value Type |
+| ---- | ----------- | ---------- |
+| ms | Histogram | Int |
+
+### otelcol_exporter_prometheusremotewrite_wal_reads
+
+Number of WAL reads
+
+| Unit | Metric Type | Value Type | Monotonic |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Sum | Int | true |
+
+### otelcol_exporter_prometheusremotewrite_wal_reads_failures
+
+Number of WAL reads that failed
+
+| Unit | Metric Type | Value Type | Monotonic |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Sum | Int | true |
+
+### otelcol_exporter_prometheusremotewrite_wal_write_latency
+
+Response latency in ms for the WAL writes.
+
+| Unit | Metric Type | Value Type |
+| ---- | ----------- | ---------- |
+| ms | Histogram | Int |
+
+### otelcol_exporter_prometheusremotewrite_wal_writes
+
+Number of WAL writes
+
+| Unit | Metric Type | Value Type | Monotonic |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Sum | Int | true |
+
+### otelcol_exporter_prometheusremotewrite_wal_writes_failures
+
+Number of WAL writes that failed
+
+| Unit | Metric Type | Value Type | Monotonic |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Sum | Int | true |
