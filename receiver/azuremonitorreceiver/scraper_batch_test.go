@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package azuremonitorreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/azuremonitorreceiver"
+
 import (
 	"context"
 	"net/http"
@@ -55,11 +56,11 @@ func newMockMetricsQueryResponse(metricsByParam []queryResourcesResponseMock) fu
 		for _, param := range metricsByParam {
 			if param.params.Evaluate(subscriptionID, metricNamespace, metricNames, resourceIDs) {
 				resp.SetResponse(http.StatusOK, param.response, nil)
-				return
+				return resp, errResp
 			}
 		}
 		errResp.SetResponseError(http.StatusNotImplemented, "error from tests")
-		return
+		return resp, errResp
 	}
 }
 
@@ -219,10 +220,21 @@ func TestAzureScraperBatchScrape(t *testing.T) {
 	}
 	cfg := createDefaultTestConfig()
 	cfg.MaximumNumberOfMetricsInACall = 2
+	cfg.AppendTagsAsAttributes = []string{}
 	cfg.SubscriptionIDs = []string{"subscriptionId1", "subscriptionId3"}
 
+	cfgTagsSelective := createDefaultTestConfig()
+	cfgTagsSelective.AppendTagsAsAttributes = []string{"tagName1"}
+	cfgTagsSelective.MaximumNumberOfMetricsInACall = 2
+	cfgTagsSelective.SubscriptionIDs = []string{"subscriptionId1", "subscriptionId3"}
+
+	cfgTagsCaseInsensitive := createDefaultTestConfig()
+	cfgTagsCaseInsensitive.AppendTagsAsAttributes = []string{"TAGNAME1"}
+	cfgTagsCaseInsensitive.MaximumNumberOfMetricsInACall = 2
+	cfgTagsCaseInsensitive.SubscriptionIDs = []string{"subscriptionId1", "subscriptionId3"}
+
 	cfgTagsEnabled := createDefaultTestConfig()
-	cfgTagsEnabled.AppendTagsAsAttributes = true
+	cfgTagsEnabled.AppendTagsAsAttributes = []string{"*"}
 	cfgTagsEnabled.MaximumNumberOfMetricsInACall = 2
 
 	tests := []struct {
@@ -237,7 +249,7 @@ func TestAzureScraperBatchScrape(t *testing.T) {
 				cfg: cfg,
 			},
 			args: args{
-				ctx: context.Background(),
+				ctx: t.Context(),
 			},
 		},
 		{
@@ -246,7 +258,25 @@ func TestAzureScraperBatchScrape(t *testing.T) {
 				cfg: cfgTagsEnabled,
 			},
 			args: args{
-				ctx: context.Background(),
+				ctx: t.Context(),
+			},
+		},
+		{
+			name: "metrics_selective_tags",
+			fields: fields{
+				cfg: cfgTagsSelective,
+			},
+			args: args{
+				ctx: t.Context(),
+			},
+		},
+		{
+			name: "metrics_selective_tags",
+			fields: fields{
+				cfg: cfgTagsCaseInsensitive,
+			},
+			args: args{
+				ctx: t.Context(),
 			},
 		},
 	}
@@ -258,7 +288,7 @@ func TestAzureScraperBatchScrape(t *testing.T) {
 			optionsResolver := newMockClientOptionsResolver(
 				getSubscriptionByIDMockData(),
 				getSubscriptionsMockData(),
-				getResourcesMockData(tt.fields.cfg.AppendTagsAsAttributes),
+				getResourcesMockData(),
 				getMetricsDefinitionsMockData(),
 				nil,
 				getMetricsQueryResponseMockData(),
@@ -266,29 +296,18 @@ func TestAzureScraperBatchScrape(t *testing.T) {
 
 			s := &azureBatchScraper{
 				cfg:                   tt.fields.cfg,
-				mb:                    metadata.NewMetricsBuilder(metadata.DefaultMetricsBuilderConfig(), settings),
+				mbs:                   newConcurrentMapImpl[*metadata.MetricsBuilder](),
 				mutex:                 &sync.Mutex{},
 				time:                  getTimeMock(),
 				clientOptionsResolver: optionsResolver,
+				receiverSettings:      settings,
 				settings:              settings.TelemetrySettings,
 
 				// From there, initialize everything that is normally initialized in start() func
-				subscriptions: map[string]*azureSubscription{
-					"subscriptionId1": {SubscriptionID: "subscriptionId1"},
-					"subscriptionId3": {SubscriptionID: "subscriptionId3"},
-				},
-				resources: map[string]map[string]*azureResource{
-					"subscriptionId1": {},
-					"subscriptionId3": {},
-				},
-				regions: map[string]map[string]struct{}{
-					"subscriptionId1": {"location1": {}},
-					"subscriptionId3": {"location1": {}},
-				},
-				resourceTypes: map[string]map[string]*azureType{
-					"subscriptionId1": {},
-					"subscriptionId3": {},
-				},
+				subscriptions: map[string]*azureSubscription{},
+				resources:     map[string]map[string]*azureResource{},
+				regions:       map[string]map[string]struct{}{},
+				resourceTypes: map[string]map[string]*azureType{},
 			}
 
 			metrics, err := s.scrape(tt.args.ctx)

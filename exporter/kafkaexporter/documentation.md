@@ -8,13 +8,13 @@ The following telemetry is emitted by this component.
 
 ### otelcol_kafka_broker_closed
 
-The total number of connections closed.
+The total number of connections closed. [development]
 
 Only produced when franz-go is enabled.
 
-| Unit | Metric Type | Value Type | Monotonic |
-| ---- | ----------- | ---------- | --------- |
-| 1 | Sum | Int | true |
+| Unit | Metric Type | Value Type | Monotonic | Stability |
+| ---- | ----------- | ---------- | --------- | --------- |
+| 1 | Sum | Int | true | development |
 
 #### Attributes
 
@@ -24,13 +24,13 @@ Only produced when franz-go is enabled.
 
 ### otelcol_kafka_broker_connects
 
-The total number of connections opened.
+The total number of connections opened. [development]
 
 Only produced when franz-go is enabled.
 
-| Unit | Metric Type | Value Type | Monotonic |
-| ---- | ----------- | ---------- | --------- |
-| 1 | Sum | Int | true |
+| Unit | Metric Type | Value Type | Monotonic | Stability |
+| ---- | ----------- | ---------- | --------- | --------- |
+| 1 | Sum | Int | true | development |
 
 #### Attributes
 
@@ -41,13 +41,29 @@ Only produced when franz-go is enabled.
 
 ### otelcol_kafka_broker_throttling_duration
 
-The throttling duration in ms imposed by the broker when exporting messages.
+The throttling duration in ms imposed by the broker when exporting messages. [deprecated]
+
+Only produced when franz-go is enabled. Deprecated in favor of kafka_broker_throttling_latency.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Histogram | Int | deprecated |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| node_id | The Kafka node ID. | Any Int |
+
+### otelcol_kafka_broker_throttling_latency
+
+The throttling latency in seconds imposed by the broker when exporting records. [development]
 
 Only produced when franz-go is enabled.
 
-| Unit | Metric Type | Value Type |
-| ---- | ----------- | ---------- |
-| ms | Histogram | Int |
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| s | Histogram | Double | development |
 
 #### Attributes
 
@@ -57,13 +73,13 @@ Only produced when franz-go is enabled.
 
 ### otelcol_kafka_exporter_bytes
 
-The size in bytes of exported messages seen by the broker.
+The size in bytes of exported records seen by the broker. [development]
 
 Only produced when franz-go is enabled.
 
-| Unit | Metric Type | Value Type | Monotonic |
-| ---- | ----------- | ---------- | --------- |
-| By | Sum | Int | true |
+| Unit | Metric Type | Value Type | Monotonic | Stability |
+| ---- | ----------- | ---------- | --------- | --------- |
+| By | Sum | Int | true | development |
 
 #### Attributes
 
@@ -76,11 +92,11 @@ Only produced when franz-go is enabled.
 
 ### otelcol_kafka_exporter_bytes_uncompressed
 
-The uncompressed size in bytes of exported messages seen by the client.
+The uncompressed size in bytes of exported messages seen by the client. [development]
 
-| Unit | Metric Type | Value Type | Monotonic |
-| ---- | ----------- | ---------- | --------- |
-| By | Sum | Int | true |
+| Unit | Metric Type | Value Type | Monotonic | Stability |
+| ---- | ----------- | ---------- | --------- | --------- |
+| By | Sum | Int | true | development |
 
 #### Attributes
 
@@ -93,11 +109,13 @@ The uncompressed size in bytes of exported messages seen by the client.
 
 ### otelcol_kafka_exporter_latency
 
-The time it took in ms to export a batch of messages.
+The time it took in ms to export a batch of messages. [deprecated]
 
-| Unit | Metric Type | Value Type |
-| ---- | ----------- | ---------- |
-| ms | Histogram | Int |
+Deprecated in favor of kafka_exporter_write_latency.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Histogram | Int | deprecated |
 
 #### Attributes
 
@@ -110,11 +128,47 @@ The time it took in ms to export a batch of messages.
 
 ### otelcol_kafka_exporter_messages
 
-The number of exported messages.
+The number of exported messages. [deprecated]
 
-| Unit | Metric Type | Value Type | Monotonic |
+Deprecated in favor of kafka_exporter_records.
+
+| Unit | Metric Type | Value Type | Monotonic | Stability |
+| ---- | ----------- | ---------- | --------- | --------- |
+| 1 | Sum | Int | true | deprecated |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| node_id | The Kafka node ID. | Any Int |
+| topic | The Kafka topic. | Any Str |
+| partition | The Kafka topic partition. | Any Int |
+| outcome | The operation outcome. | Str: ``success``, ``failure`` |
+
+### otelcol_kafka_exporter_records
+
+The number of exported records. [development]
+
+| Unit | Metric Type | Value Type | Monotonic | Stability |
+| ---- | ----------- | ---------- | --------- | --------- |
+| 1 | Sum | Int | true | development |
+
+#### Attributes
+
+| Name | Description | Values |
+| ---- | ----------- | ------ |
+| node_id | The Kafka node ID. | Any Int |
+| topic | The Kafka topic. | Any Str |
+| partition | The Kafka topic partition. | Any Int |
+| outcome | The operation outcome. | Str: ``success``, ``failure`` |
+
+### otelcol_kafka_exporter_write_latency
+
+The time it took in seconds to export a batch of records. [development]
+
+| Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| 1 | Sum | Int | true |
+| s | Histogram | Double | development |
 
 #### Attributes
 

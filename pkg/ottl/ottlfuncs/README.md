@@ -474,6 +474,7 @@ Available Converters:
 - [Hex](#hex)
 - [Hour](#hour)
 - [Hours](#hours)
+- [Index](#index)
 - [InsertXML](#insertxml)
 - [Int](#int)
 - [IsBool](#isbool)
@@ -533,7 +534,10 @@ Available Converters:
 - [UnixSeconds](#unixseconds)
 - [UserAgent](#useragent)
 - [UUID](#UUID)
+- [UUIDv7](#UUIDv7)
+- [Values](#values)
 - [Weekday](#weekday)
+- [XXH3](#xxh3)
 - [Year](#year)
 
 ### Base64Decode (Deprecated)
@@ -1073,6 +1077,24 @@ The returned type is `float64`.
 Examples:
 
 - `Hours(Duration("1h"))`
+
+### Index
+
+`Index(target, value)`
+
+The `Index` Converter returns the index of the first occurrence of the `value` in the `target`, or `-1` if not found. Values are compared using the OTTL [comparison rules](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/pkg/ottl/LANGUAGE.md#comparison-rules).
+
+`target` is a string or a slice of any type described in the OTTL comparison rules.
+
+`value` is the content whose index is being searched for in the `target`.
+
+The returned type is `int64`.
+
+**Examples:**
+
+- `Index("hello world", "world")`
+- `Index(log.attributes["tags"], "error")`
+- `Index(log.attributes["scores"], 95)`
 
 ### InsertXML
 
@@ -1983,14 +2005,14 @@ Examples:
 
 ### SliceToMap
 
-`SliceToMap(target, keyPath, Optional[valuePath])`
+`SliceToMap(target, Optional[keyPath], Optional[valuePath])`
 
 The `SliceToMap` converter converts a slice of objects to a map. The arguments are as follows:
 
 - `target`: A list of maps containing the entries to be converted.
-- `keyPath`: A string array that determines the name of the keys for the map entries by pointing to the value of an attribute within each slice item. Note that
-the `keyPath` must resolve to a string value, otherwise the converter will not be able to convert the item
-to a map entry.
+- `keyPath`: An optional string array that determines the name of the keys for the map entries by pointing to the value of an attribute within each slice item. Note that
+if `keyPath` is provided, it must resolve to a string value, otherwise the converter will not be able to convert the item to a map entry. If `keyPath` isn't provided, the string representation of the index when looping through objects in the slice will be the key for the object in the output map. 
+
 - `valuePath`: This optional string array determines which attribute should be used as the value for the map entry. If no
 `valuePath` is defined, the value of the map entry will be the same as the original slice item.
 
@@ -2020,6 +2042,22 @@ attributes:
       name: foo
       value: 2
     bar:
+      name: bar
+      value: 5
+```
+
+- `SliceToMap(resource.attributes["things"])`:
+
+This converts the input above to the following:
+
+```yaml
+attributes:
+  hello: world
+  things:
+    "0":
+      name: foo
+      value: 2
+    "1":
       name: bar
       value: 5
 ```
@@ -2496,6 +2534,26 @@ results in
 
 The `UUID` function generates a v4 uuid string.
 
+### UUIDv7
+
+`UUIDv7()`
+
+The `UUIDv7` function generates a version 7 UUID using the current Unix epoch timestamp.
+
+The returned type is `string`.
+
+### Values
+
+`Values(target)` converts a `pcommon.Map` into a slice containing its values.
+
+`target` is a `pcommon.Map`
+
+The function returns a `pcommon.Slice`. The order of elements in the output `pcommon.Slice` is not guaranteed.
+
+Examples:
+- `Values(resource.attributes)`
+- `Values({"key1": "value1", "key2": 5, "key3": [1,2], "key4": {"b1": "c"}})`
+
 ### Weekday
 
 `Weekday(value)`
@@ -2511,6 +2569,23 @@ The returned range is 0-6 (Sun-Sat)
 Examples:
 
 - `Weekday(Now())`
+
+### XXH3
+
+`XXH3(value)`
+
+The `XXH3` Converter generates a 64-bit xxHash digest from the input `value` using the XXH3 hash algorithm.
+
+The returned type is string.
+
+`value` is either a path expression to a string telemetry field or a literal string. If `value` is another type an error is returned.
+
+If an error occurs during hashing, it is returned.
+
+Examples:
+
+- `XXH3(resource.attributes["device.name"])`
+- `XXH3("name")`
 
 ### Year
 

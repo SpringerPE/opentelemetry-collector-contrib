@@ -45,7 +45,7 @@ PKG_MODS := $(shell find ./pkg/* $(FIND_MOD_ARGS) -exec $(TO_MOD_DIR) )
 CMD_MODS_0 := $(shell find ./cmd/[a-z]* $(FIND_MOD_ARGS) -not -path "./cmd/otel*col/*" -exec $(TO_MOD_DIR) )
 CMD_MODS := $(CMD_MODS_0)
 OTHER_MODS := $(shell find . $(EX_COMPONENTS) $(EX_INTERNAL) $(EX_PKG) $(EX_CMD) $(FIND_MOD_ARGS) -exec $(TO_MOD_DIR) )
-ALL_MODS := $(RECEIVER_MODS) $(PROCESSOR_MODS) $(EXPORTER_MODS) $(EXTENSION_MODS) $(CONNECTOR_MODS) $(INTERNAL_MODS) $(PKG_MODS) $(CMD_MODS) $(OTHER_MODS)
+export ALL_MODS := $(RECEIVER_MODS) $(PROCESSOR_MODS) $(EXPORTER_MODS) $(EXTENSION_MODS) $(CONNECTOR_MODS) $(INTERNAL_MODS) $(PKG_MODS) $(CMD_MODS) $(OTHER_MODS)
 
 CGO_MODS := ./receiver/hostmetricsreceiver
 
@@ -159,7 +159,7 @@ tidylist: $(CROSSLINK)
 gotidy:
 	@for mod in $$(cat internal/tidylist/tidylist.txt); do \
 		echo "Tidying $$mod"; \
-		(cd $$mod && rm -rf go.sum && $(GOCMD) mod tidy -compat=1.23.0 && $(GOCMD) get toolchain@none) || exit $?; \
+		(cd $$mod && rm -rf go.sum && $(GOCMD) mod tidy -compat=1.24.0 && $(GOCMD) get toolchain@none) || exit $?; \
 	done
 
 .PHONY: remove-toolchain
@@ -222,7 +222,7 @@ goporto: $(PORTO)
 
 .PHONY: for-all
 for-all:
-	@set -e; for dir in $(ALL_MODS); do \
+	@set -e; for dir in $$ALL_MODS; do \
 	  (cd "$${dir}" && \
 	  	echo "running $${CMD} in $${dir}" && \
 	 	$${CMD} ); \
@@ -367,10 +367,6 @@ docker-golden:
 	cd cmd/golden && docker build --platform linux/$(GOARCH) --build-arg="TARGETOS=$(GOOS)" --build-arg="TARGETARCH=$(GOARCH)" -t golden:latest .
 	rm cmd/golden/golden_*
 
-.PHONY: generate
-generate: install-tools
-	PATH="$(ROOT_DIR).tools:$$PATH" $(MAKE) for-all CMD="$(GOCMD) generate ./..."
-	$(MAKE) gofmt
 
 .PHONY: gengithub
 gengithub: $(GITHUBGEN)
@@ -390,6 +386,10 @@ update-codeowners: generate gengithub
 .PHONY: gencodeowners
 gencodeowners: install-tools
 	$(GITHUBGEN) -skipgithub
+
+.PHONY: generate-chloggen-components
+generate-chloggen-components: $(GITHUBGEN)
+	$(GITHUBGEN) chloggen-components
 
 FILENAME?=$(shell git branch --show-current)
 .PHONY: chlog-new
@@ -522,7 +522,7 @@ update-otel:$(MULTIMOD)
 	# Tidy again after generating code
 	$(MAKE) gotidy
 	$(MAKE) remove-toolchain
-	git add . && git commit -s -m "[chore] mod and toolchain tidy" ; \
+	git add . && git commit -s -m "[chore] mod and toolchain tidy" --allow-empty ; \
 
 .PHONY: otel-from-tree
 otel-from-tree:
@@ -627,8 +627,7 @@ $(1)
 endef
 
 # List of directories where certificates are stored for unit tests.
-CERT_DIRS := receiver/sapmreceiver/testdata \
-             receiver/signalfxreceiver/testdata \
+CERT_DIRS := receiver/signalfxreceiver/testdata \
              receiver/splunkhecreceiver/testdata \
              receiver/mongodbatlasreceiver/testdata/alerts/cert \
              receiver/mongodbreceiver/testdata/certs \
@@ -658,6 +657,10 @@ multimod-sync: $(MULTIMOD)
 crosslink: $(CROSSLINK)
 	@echo "Executing crosslink"
 	$(CROSSLINK) --root=$(shell pwd) --prune
+
+.PHONY: actionlint
+actionlint: $(ACTIONLINT)
+	$(ACTIONLINT) -config-file .github/actionlint.yaml -color $(filter-out $(wildcard .github/workflows/*windows.y*), $(wildcard .github/workflows/*.y*))
 
 .PHONY: clean
 clean:

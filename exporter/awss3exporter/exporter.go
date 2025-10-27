@@ -75,7 +75,7 @@ func (e *s3Exporter) start(ctx context.Context, host component.Host) error {
 
 	e.marshaler = m
 
-	up, err := newUploadManager(ctx, e.config, e.signalType, m.format())
+	up, err := newUploadManager(ctx, e.config, e.signalType, m.format(), m.compressed())
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (e *s3Exporter) start(ctx context.Context, host component.Host) error {
 	return nil
 }
 
-func (e *s3Exporter) Capabilities() consumer.Capabilities {
+func (*s3Exporter) Capabilities() consumer.Capabilities {
 	return consumer.Capabilities{MutatesData: false}
 }
 

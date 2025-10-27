@@ -51,6 +51,7 @@ type MetricsConfig struct {
 	MysqlOpenedResources         MetricConfig `mapstructure:"mysql.opened_resources"`
 	MysqlOperations              MetricConfig `mapstructure:"mysql.operations"`
 	MysqlPageOperations          MetricConfig `mapstructure:"mysql.page_operations"`
+	MysqlPageSize                MetricConfig `mapstructure:"mysql.page_size"`
 	MysqlPreparedStatements      MetricConfig `mapstructure:"mysql.prepared_statements"`
 	MysqlQueryClientCount        MetricConfig `mapstructure:"mysql.query.client.count"`
 	MysqlQueryCount              MetricConfig `mapstructure:"mysql.query.count"`
@@ -147,6 +148,9 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		MysqlPageOperations: MetricConfig{
 			Enabled: true,
+		},
+		MysqlPageSize: MetricConfig{
+			Enabled: false,
 		},
 		MysqlPreparedStatements: MetricConfig{
 			Enabled: true,
@@ -245,12 +249,16 @@ func (ec *EventConfig) Unmarshal(parser *confmap.Conf) error {
 // EventsConfig provides config for mysql events.
 type EventsConfig struct {
 	DbServerQuerySample EventConfig `mapstructure:"db.server.query_sample"`
+	DbServerTopQuery    EventConfig `mapstructure:"db.server.top_query"`
 }
 
 func DefaultEventsConfig() EventsConfig {
 	return EventsConfig{
 		DbServerQuerySample: EventConfig{
 			Enabled: true,
+		},
+		DbServerTopQuery: EventConfig{
+			Enabled: false,
 		},
 	}
 }

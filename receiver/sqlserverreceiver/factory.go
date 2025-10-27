@@ -56,7 +56,7 @@ func createDefaultConfig() component.Config {
 			MaxRowsPerQuery: 100,
 		},
 		TopQueryCollection: TopQueryCollection{
-			LookbackTime:        uint(2 * cfg.CollectionInterval / time.Second),
+			LookbackTime:        2 * cfg.CollectionInterval / time.Second,
 			MaxQuerySampleCount: 1000,
 			TopQueryCount:       200,
 			CollectionInterval:  time.Minute,
@@ -75,7 +75,7 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerPerformanceCounterQuery(cfg.InstanceName))
 	}
 
-	if cfg.Metrics.SqlserverDatabaseCount.Enabled || cfg.Metrics.SqlserverCPUCount.Enabled {
+	if cfg.Metrics.SqlserverDatabaseCount.Enabled || cfg.Metrics.SqlserverCPUCount.Enabled || cfg.Metrics.SqlserverComputerUptime.Enabled {
 		queries = append(queries, getSQLServerPropertiesQuery(cfg.InstanceName))
 	}
 

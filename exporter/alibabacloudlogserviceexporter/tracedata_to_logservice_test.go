@@ -52,7 +52,7 @@ func TestTraceDataToLogService(t *testing.T) {
 		t.Errorf("Failed load log key value pairs from %q: %v", resultLogFile, err)
 		return
 	}
-	for j := 0; j < len(gotLogs); j++ {
+	for j := range gotLogs {
 		sort.Sort(logKeyValuePairs(gotLogPairs[j]))
 		sort.Sort(logKeyValuePairs(wantLogs[j]))
 		assert.Equal(t, wantLogs[j], gotLogPairs[j])
@@ -154,11 +154,12 @@ func fillHTTPServerSpan(span ptrace.Span) {
 func constructSpanAttributes(attributes map[string]any) pcommon.Map {
 	attrs := pcommon.NewMap()
 	for key, value := range attributes {
-		if cast, ok := value.(int); ok {
+		switch cast := value.(type) {
+		case int:
 			attrs.PutInt(key, int64(cast))
-		} else if cast, ok := value.(int64); ok {
+		case int64:
 			attrs.PutInt(key, cast)
-		} else {
+		default:
 			attrs.PutStr(key, fmt.Sprintf("%v", value))
 		}
 	}

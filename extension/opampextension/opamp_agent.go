@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"runtime"
@@ -28,9 +29,10 @@ import (
 	"go.opentelemetry.io/collector/extension/extensioncapabilities"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/service"
+	"go.opentelemetry.io/collector/service/hostcapabilities"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
 	"go.uber.org/zap"
-	"golang.org/x/exp/maps"
+	expmaps "golang.org/x/exp/maps"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
@@ -101,15 +103,6 @@ var (
 	}
 )
 
-// moduleInfo exposes the internal collector moduleInfo interface
-// This functionality will be exposed in the collector by https://github.com/open-telemetry/opentelemetry-collector/pull/12375,
-// and once it is merged, this interface should be replaced by the new non-internal interface
-type moduleInfo interface {
-	// GetModuleInfos returns the module information for the host
-	// i.e. Receivers, Processors, Exporters, Extensions, and Connectors
-	GetModuleInfos() service.ModuleInfos
-}
-
 func (o *opampAgent) Start(ctx context.Context, host component.Host) error {
 	o.reportFunc = func(event *componentstatus.Event) {
 		componentstatus.ReportStatus(host, event)
@@ -155,7 +148,6 @@ func (o *opampAgent) Start(ctx context.Context, host component.Host) error {
 			},
 			OnMessage: o.onMessage,
 		},
-		Capabilities: o.capabilities.toAgentCapabilities(),
 	}
 
 	if err := o.createAgentDescription(); err != nil {
@@ -166,7 +158,7 @@ func (o *opampAgent) Start(ctx context.Context, host component.Host) error {
 		return err
 	}
 
-	if mi, ok := host.(moduleInfo); ok {
+	if mi, ok := host.(hostcapabilities.ModuleInfo); ok {
 		o.initAvailableComponents(mi.GetModuleInfos())
 	} else if o.capabilities.ReportsAvailableComponents {
 		// init empty availableComponents to not get an error when starting the opampClient
@@ -177,6 +169,11 @@ func (o *opampAgent) Start(ctx context.Context, host component.Host) error {
 		if err := o.opampClient.SetAvailableComponents(o.availableComponents); err != nil {
 			return err
 		}
+	}
+
+	capabilities := o.capabilities.toAgentCapabilities()
+	if err := o.opampClient.SetCapabilities(&capabilities); err != nil {
+		return err
 	}
 
 	o.logger.Debug("Starting OpAMP client...")
@@ -391,9 +388,7 @@ func (o *opampAgent) createAgentDescription() error {
 	nonIdentifyingAttributeMap[string(semconv.HostNameKey)] = hostname
 	nonIdentifyingAttributeMap[string(semconv.OSDescriptionKey)] = description
 
-	for k, v := range o.cfg.AgentDescription.NonIdentifyingAttributes {
-		nonIdentifyingAttributeMap[k] = v
-	}
+	maps.Copy(nonIdentifyingAttributeMap, o.cfg.AgentDescription.NonIdentifyingAttributes)
 	if o.cfg.AgentDescription.IncludeResourceAttributes {
 		for k, v := range o.resourceAttrs {
 			// skip the attributes that are being used in the identifying attributes.
@@ -405,7 +400,7 @@ func (o *opampAgent) createAgentDescription() error {
 	}
 
 	// Sort the non identifying attributes to give them a stable order for tests
-	keys := maps.Keys(nonIdentifyingAttributeMap)
+	keys := expmaps.Keys(nonIdentifyingAttributeMap)
 	sort.Strings(keys)
 
 	nonIdent := make([]*protobufs.KeyValue, 0, len(nonIdentifyingAttributeMap))

@@ -318,6 +318,7 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 
 	storeResource := true
 	if span.Kind() != ptrace.SpanKindServer &&
+		span.Kind() != ptrace.SpanKindConsumer &&
 		!span.ParentSpanID().IsEmpty() {
 		segmentType = "subsegment"
 		// We only store the resource information for segments, the local root.
@@ -447,8 +448,7 @@ func MakeSegment(span ptrace.Span, resource pcommon.Resource, indexedAttrs []str
 	if name == "" {
 		name = fixSegmentName(span.Name())
 	}
-
-	if namespace == "" && span.Kind() == ptrace.SpanKindClient {
+	if namespace == "" && (span.Kind() == ptrace.SpanKindClient || span.Kind() == ptrace.SpanKindProducer) {
 		namespace = "remote"
 	}
 
@@ -744,11 +744,9 @@ func fixSegmentName(name string) string {
 func fixAnnotationKey(key string) string {
 	return strings.Map(func(r rune) rune {
 		switch {
-		case '0' <= r && r <= '9':
-			fallthrough
-		case 'A' <= r && r <= 'Z':
-			fallthrough
-		case 'a' <= r && r <= 'z':
+		case '0' <= r && r <= '9',
+			'A' <= r && r <= 'Z',
+			'a' <= r && r <= 'z':
 			return r
 		case remoteXrayExporterDotConverter.IsEnabled() && r == '.':
 			return r

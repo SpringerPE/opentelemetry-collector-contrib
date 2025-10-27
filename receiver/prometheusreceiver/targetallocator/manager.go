@@ -6,6 +6,7 @@ package targetallocator // import "github.com/open-telemetry/opentelemetry-colle
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -13,8 +14,11 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"sync/atomic"
+	"syscall"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	"github.com/goccy/go-yaml"
 	commonconfig "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
@@ -36,6 +40,10 @@ type Manager struct {
 	scrapeManager          *scrape.Manager
 	discoveryManager       *discovery.Manager
 	enableNativeHistograms bool
+
+	// configUpdateCount tracks how many times the config has changed, for
+	// testing.
+	configUpdateCount *atomic.Int64
 }
 
 func NewManager(set receiver.Settings, cfg *Config, promCfg *promconfig.Config, enableNativeHistograms bool) *Manager {
@@ -46,6 +54,7 @@ func NewManager(set receiver.Settings, cfg *Config, promCfg *promconfig.Config, 
 		promCfg:                promCfg,
 		initialScrapeConfigs:   promCfg.ScrapeConfigs,
 		enableNativeHistograms: enableNativeHistograms,
+		configUpdateCount:      &atomic.Int64{},
 	}
 }
 
@@ -67,8 +76,19 @@ func (m *Manager) Start(ctx context.Context, host component.Host, sm *scrape.Man
 		return err
 	}
 	m.settings.Logger.Info("Starting target allocator discovery")
+
+	operation := func() (uint64, error) {
+		savedHash, opErr := m.sync(uint64(0), httpClient)
+		if opErr != nil {
+			if errors.Is(opErr, syscall.ECONNREFUSED) {
+				return 0, backoff.RetryAfter(1)
+			}
+			return 0, opErr
+		}
+		return savedHash, nil
+	}
 	// immediately sync jobs, not waiting for the first tick
-	savedHash, err := m.sync(uint64(0), httpClient)
+	savedHash, err := backoff.Retry(ctx, operation, backoff.WithBackOff(backoff.NewExponentialBackOff()))
 	if err != nil {
 		return err
 	}
@@ -154,14 +174,6 @@ func (m *Manager) sync(compareHash uint64, httpClient *http.Client) (uint64, err
 			scrapeConfig.ScrapeFallbackProtocol = promconfig.PrometheusText0_0_4
 		}
 
-		// TODO(krajorama): remove once
-		// https://github.com/prometheus/prometheus/issues/16750 is solved
-		// https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/35459
-		//   is implemented and is default.
-		if m.promCfg.GlobalConfig.MetricNameValidationScheme == "" {
-			m.promCfg.GlobalConfig.MetricNameValidationScheme = promconfig.LegacyValidationConfig
-		}
-
 		// Validate the scrape config and also fill in the defaults from the global config as needed.
 		err = scrapeConfig.Validate(m.promCfg.GlobalConfig)
 		if err != nil {
@@ -178,6 +190,9 @@ func (m *Manager) sync(compareHash uint64, httpClient *http.Client) (uint64, err
 		return 0, err
 	}
 
+	if m.configUpdateCount != nil {
+		m.configUpdateCount.Add(1)
+	}
 	return hash, nil
 }
 

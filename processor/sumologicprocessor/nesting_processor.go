@@ -141,7 +141,7 @@ func (proc *nestingProcessor) processAttributes(attributes pcommon.Map) error {
 		nextMap := prevValue.Map()
 		newMap.CopyTo(nextMap)
 
-		for i := 0; i < len(keys); i++ {
+		for i := range keys {
 			if prevValue.Type() != pcommon.ValueTypeMap {
 				// If previous value was not a map, change it into a map.
 				// The former value will be set under the key "".
@@ -279,7 +279,7 @@ func (proc *nestingProcessor) squashAttribute(value pcommon.Value) string {
 	return ""
 }
 
-func (proc *nestingProcessor) squashKey(key string, keySuffix string) string {
+func (proc *nestingProcessor) squashKey(key, keySuffix string) string {
 	if keySuffix == "" {
 		return key
 	}

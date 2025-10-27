@@ -139,13 +139,13 @@ func TestUserAgentParser(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.Name, func(t *testing.T) {
 			source := &ottl.StandardStringGetter[any]{
-				Getter: func(_ context.Context, _ any) (any, error) {
+				Getter: func(context.Context, any) (any, error) {
 					return tt.UAString, nil
 				},
 			}
 
 			exprFunc := userAgent[any](source) //revive:disable-line:var-naming
-			res, err := exprFunc(context.Background(), nil)
+			res, err := exprFunc(t.Context(), nil)
 			require.NoError(t, err)
 			require.IsType(t, map[string]any{}, res)
 			resMap := res.(map[string]any)

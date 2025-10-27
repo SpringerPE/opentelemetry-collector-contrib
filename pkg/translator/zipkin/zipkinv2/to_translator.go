@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"sort"
 	"strconv"
@@ -273,7 +274,7 @@ func zipkinKindToSpanKind(kind zipkinmodel.Kind, tags map[string]string) ptrace.
 }
 
 func zTagsToSpanLinks(tags map[string]string, dest ptrace.SpanLinkSlice) error {
-	for i := 0; i < 128; i++ {
+	for i := range 128 {
 		key := fmt.Sprintf("otlp.link.%d", i)
 		val, ok := tags[key]
 		if !ok {
@@ -369,16 +370,17 @@ func populateSpanEvents(zspan *zipkinmodel.SpanModel, events ptrace.SpanEventSli
 
 func jsonMapToAttributeMap(attrs map[string]any, dest pcommon.Map) error {
 	for key, val := range attrs {
-		if s, ok := val.(string); ok {
-			dest.PutStr(key, s)
-		} else if d, ok := val.(float64); ok {
-			if math.Mod(d, 1.0) == 0.0 {
-				dest.PutInt(key, int64(d))
+		switch cast := val.(type) {
+		case string:
+			dest.PutStr(key, cast)
+		case float64:
+			if math.Mod(cast, 1.0) == 0.0 {
+				dest.PutInt(key, int64(cast))
 			} else {
-				dest.PutDouble(key, d)
+				dest.PutDouble(key, cast)
 			}
-		} else if b, ok := val.(bool); ok {
-			dest.PutBool(key, b)
+		case bool:
+			dest.PutBool(key, cast)
 		}
 	}
 	return nil
@@ -487,9 +489,7 @@ func populateILFromZipkinSpan(tags map[string]string, instrLibName string, libra
 
 func copySpanTags(tags map[string]string) map[string]string {
 	dest := make(map[string]string, len(tags))
-	for key, val := range tags {
-		dest[key] = val
-	}
+	maps.Copy(dest, tags)
 	return dest
 }
 
@@ -528,7 +528,7 @@ func setTimestampsV2(zspan *zipkinmodel.SpanModel, dest ptrace.Span, destAttrs p
 
 // unmarshalJSON inflates trace id from hex string, possibly enclosed in quotes.
 // TODO: Find a way to avoid this duplicate code. Consider to expose this in pdata.
-func unmarshalJSON(dst []byte, src []byte) error {
+func unmarshalJSON(dst, src []byte) error {
 	if l := len(src); l >= 2 && src[0] == '"' && src[l-1] == '"' {
 		src = src[1 : l-1]
 	}

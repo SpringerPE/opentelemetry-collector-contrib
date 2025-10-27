@@ -65,7 +65,7 @@ func (h *hashRing) findEndpoint(pos position) string {
 }
 
 // bsearch is a binary search-like algorithm, returning the closest "next" item instead of an exact match
-func bsearch(pos position, left []ringItem, right []ringItem) ringItem {
+func bsearch(pos position, left, right []ringItem) ringItem {
 	// if it's the last item of the left side, return it
 	if left[len(left)-1].pos == pos {
 		return left[len(left)-1]
@@ -106,7 +106,7 @@ func bsearch(pos position, left []ringItem, right []ringItem) ringItem {
 func positionsFor(endpoint string, numPoints int) []position {
 	res := make([]position, 0, numPoints)
 	buf := make([]byte, 4)
-	for i := 0; i < numPoints; i++ {
+	for i := range numPoints {
 		h := crc32.NewIEEE()
 		binary.LittleEndian.PutUint32(buf, uint32(i))
 		h.Write([]byte(endpoint))

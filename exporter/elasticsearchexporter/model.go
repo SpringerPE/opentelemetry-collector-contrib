@@ -180,7 +180,7 @@ func (e legacyModeEncoder) encodeLog(ec encodingContext, record plog.LogRecord, 
 	return document.Serialize(buf, false)
 }
 
-func (e ecsModeEncoder) encodeLog(
+func (ecsModeEncoder) encodeLog(
 	ec encodingContext,
 	record plog.LogRecord,
 	idx elasticsearch.Index,
@@ -228,7 +228,7 @@ func (e ecsModeEncoder) encodeLog(
 	return document.Serialize(buf, true)
 }
 
-func (e ecsModeEncoder) encodeSpan(
+func (ecsModeEncoder) encodeSpan(
 	ec encodingContext,
 	span ptrace.Span,
 	idx elasticsearch.Index,
@@ -334,7 +334,7 @@ func (e otelModeEncoder) encodeProfile(
 	return e.serializer.SerializeProfile(dic, ec.resource, ec.scope, profile, pushData)
 }
 
-func (e bodymapModeEncoder) encodeLog(
+func (bodymapModeEncoder) encodeLog(
 	_ encodingContext,
 	record plog.LogRecord,
 	_ elasticsearch.Index,
@@ -443,9 +443,12 @@ func (ecsDataPointsEncoder) encodeMetrics(
 
 func addDataStreamAttributes(document *objmodel.Document, key string, idx elasticsearch.Index) {
 	if idx.IsDataStream() {
-		document.AddString(key+"data_stream.type", idx.Type)
-		document.AddString(key+"data_stream.dataset", idx.Dataset)
-		document.AddString(key+"data_stream.namespace", idx.Namespace)
+		if key != "" {
+			key += "."
+		}
+		document.AddString(key+elasticsearch.DataStreamType, idx.Type)
+		document.AddString(key+elasticsearch.DataStreamDataset, idx.Dataset)
+		document.AddString(key+elasticsearch.DataStreamNamespace, idx.Namespace)
 	}
 }
 
@@ -466,8 +469,7 @@ func encodeAttributes(prefix string, document *objmodel.Document, attributes pco
 
 func spanLinksToString(spanLinkSlice ptrace.SpanLinkSlice) string {
 	linkArray := make([]map[string]any, 0, spanLinkSlice.Len())
-	for i := 0; i < spanLinkSlice.Len(); i++ {
-		spanLink := spanLinkSlice.At(i)
+	for _, spanLink := range spanLinkSlice.All() {
 		link := map[string]any{}
 		link[spanIDField] = traceutil.SpanIDToHexOrEmptyString(spanLink.SpanID())
 		link[traceIDField] = traceutil.TraceIDToHexOrEmptyString(spanLink.TraceID())

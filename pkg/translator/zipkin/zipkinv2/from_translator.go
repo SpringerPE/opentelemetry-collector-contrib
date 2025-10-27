@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"strconv"
 	"time"
@@ -35,7 +36,7 @@ type FromTranslator struct{}
 
 // FromTraces translates internal trace data into Zipkin v2 spans.
 // Returns a slice of Zipkin SpanModel's.
-func (t FromTranslator) FromTraces(td ptrace.Traces) ([]*zipkinmodel.SpanModel, error) {
+func (FromTranslator) FromTraces(td ptrace.Traces) ([]*zipkinmodel.SpanModel, error) {
 	resourceSpans := td.ResourceSpans()
 	if resourceSpans.Len() == 0 {
 		return nil, nil
@@ -84,6 +85,11 @@ func resourceSpansToZipkinSpans(rs ptrace.ResourceSpans, estSpanCount int) ([]*z
 }
 
 func extractScopeTags(il pcommon.InstrumentationScope, zTags map[string]string) {
+	attrs := il.Attributes()
+	for k, v := range attrs.All() {
+		zTags[k] = v.AsString()
+	}
+
 	if ilName := il.Name(); ilName != "" {
 		zTags[string(conventions.OtelLibraryNameKey)] = ilName
 	}
@@ -186,13 +192,9 @@ func populateStatus(status ptrace.Status, zs *zipkinmodel.SpanModel, tags map[st
 
 func aggregateSpanTags(span ptrace.Span, zTags map[string]string) map[string]string {
 	tags := make(map[string]string)
-	for key, val := range zTags {
-		tags[key] = val
-	}
+	maps.Copy(tags, zTags)
 	spanTags := attributeMapToStringMap(span.Attributes())
-	for key, val := range spanTags {
-		tags[key] = val
-	}
+	maps.Copy(tags, spanTags)
 	return tags
 }
 

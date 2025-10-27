@@ -47,6 +47,8 @@ all_set:
       enabled: true
     mysql.page_operations:
       enabled: true
+    mysql.page_size:
+      enabled: true
     mysql.prepared_statements:
       enabled: true
     mysql.query.client.count:
@@ -97,6 +99,8 @@ all_set:
       enabled: true
   events:
     db.server.query_sample:
+      enabled: true
+    db.server.top_query:
       enabled: true
   resource_attributes:
     mysql.instance.endpoint:
@@ -149,6 +153,8 @@ none_set:
       enabled: false
     mysql.page_operations:
       enabled: false
+    mysql.page_size:
+      enabled: false
     mysql.prepared_statements:
       enabled: false
     mysql.query.client.count:
@@ -199,6 +205,8 @@ none_set:
       enabled: false
   events:
     db.server.query_sample:
+      enabled: false
+    db.server.top_query:
       enabled: false
   resource_attributes:
     mysql.instance.endpoint:

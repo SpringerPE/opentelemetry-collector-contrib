@@ -16,8 +16,8 @@ import (
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"go.yaml.in/yaml/v3"
 	"golang.org/x/mod/modfile"
-	"sigs.k8s.io/yaml"
 )
 
 type Args struct {
@@ -44,7 +44,7 @@ var _ encoding.TextUnmarshaler = (*CommaSeparatedSet)(nil)
 
 func (c *CommaSeparatedSet) UnmarshalText(text []byte) error {
 	*c = make(map[string]struct{})
-	for _, key := range strings.Split(string(text), ",") {
+	for key := range strings.SplitSeq(string(text), ",") {
 		key = strings.TrimSpace(key)
 		if key == "" {
 			return errors.New("empty key in comma-separated list")
@@ -99,26 +99,25 @@ func main() {
 }
 
 // Component represents a component in the Codecov configuration.
-// Use JSON tags instead of YAML tags since this is what sigs.k8s.io/yaml supports.
 type Component struct {
-	ComponentID string   `json:"component_id"`
-	Name        string   `json:"name"`
-	Paths       []string `json:"paths"`
+	ComponentID string   `yaml:"component_id"`
+	Name        string   `yaml:"name"`
+	Paths       []string `yaml:"paths"`
 }
 
 type ComponentManagement struct {
-	IndividualComponents []Component `json:"individual_components"`
+	IndividualComponents []Component `yaml:"individual_components"`
 }
 
 type CodecovConfig struct {
-	ComponentManagement ComponentManagement `json:"component_management"`
+	ComponentManagement ComponentManagement `yaml:"component_management"`
 }
 
 var (
 	// validFlagRegexp is a regular expression to validate codecov flags.
 	// It is mentioned here: https://docs.codecov.com/docs/flags
 	// It's unclear if components fit this pattern, but they seem to work with it.
-	validFlagRegexp = regexp.MustCompile(`^[\w\.\-]{1,45}$`)
+	validFlagRegexp = regexp.MustCompile(`^[\w.\-]{1,45}$`)
 
 	// defaultSuffixList is a list of suffixes to remove from the module name.
 	// We remove the suffixes so that the component ID is shorter.
@@ -233,12 +232,17 @@ const (
 var matchComponentSection = regexp.MustCompile("(?s)" + startComponentList + ".*" + endComponentList)
 
 func addComponentList(config *CodecovConfig) error {
-	yamlData, err := yaml.Marshal(config)
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	enc.CompactSeqIndent()
+
+	err := enc.Encode(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal YAML: %w", err)
 	}
 
-	replacement := []byte(startComponentList + "\n" + string(yamlData) + endComponentList)
+	replacement := []byte(startComponentList + "\n" + buf.String() + endComponentList)
 	codecovCfg, err := os.ReadFile(codecovFileName)
 	if err != nil {
 		return fmt.Errorf("failed to read %q: %w", codecovFileName, err)

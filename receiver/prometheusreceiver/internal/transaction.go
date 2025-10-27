@@ -56,6 +56,7 @@ type transaction struct {
 	trimSuffixes           bool
 	enableNativeHistograms bool
 	addingNativeHistogram  bool // true if the last sample was a native histogram.
+	addingNHCB             bool // true if the last sample was a NHCB.
 	ctx                    context.Context
 	families               map[resourceKey]map[scopeID]map[metricFamilyKey]*metricFamily
 	mc                     scrape.MetricMetadataStore
@@ -74,8 +75,9 @@ type transaction struct {
 var emptyScopeID scopeID
 
 type scopeID struct {
-	name    string
-	version string
+	name      string
+	version   string
+	schemaURL string
 }
 
 func newTransaction(
@@ -109,6 +111,7 @@ func newTransaction(
 // Append always returns 0 to disable label caching.
 func (t *transaction) Append(_ storage.SeriesRef, ls labels.Labels, atMs int64, val float64) (storage.SeriesRef, error) {
 	t.addingNativeHistogram = false
+	t.addingNHCB = false
 
 	select {
 	case <-t.ctx.Done():
@@ -210,6 +213,7 @@ func (t *transaction) detectAndStoreNativeHistogramStaleness(atMs int64, key *re
 	}
 	// Store the staleness marker as a native histogram.
 	t.addingNativeHistogram = true
+	t.addingNHCB = false
 
 	curMF := t.getOrCreateMetricFamily(*key, scope, metricName)
 	seriesRef := t.getSeriesRef(ls, curMF.mtype)
@@ -243,7 +247,8 @@ func (t *transaction) getOrCreateMetricFamily(key resourceKey, scope scopeID, mn
 		mf, ok := t.families[key][scope][fnKey]
 		if !ok || !mf.includesMetric(mn) {
 			curMf = newMetricFamily(mn, t.mc, t.logger)
-			if curMf.mtype == pmetric.MetricTypeHistogram && mfKey.isExponentialHistogram {
+			// Don't convert NHCB to ExponentialHistogram.
+			if curMf.mtype == pmetric.MetricTypeHistogram && mfKey.isExponentialHistogram && !t.addingNHCB {
 				curMf.mtype = pmetric.MetricTypeExponentialHistogram
 			}
 			t.families[key][scope][metricFamilyKey{isExponentialHistogram: mfKey.isExponentialHistogram, name: curMf.name}] = curMf
@@ -294,7 +299,14 @@ func (t *transaction) AppendHistogram(_ storage.SeriesRef, ls labels.Labels, atM
 	default:
 	}
 
+	var schema int32
+	if h != nil {
+		schema = h.Schema
+	} else if fh != nil {
+		schema = fh.Schema
+	}
 	t.addingNativeHistogram = true
+	t.addingNHCB = schema == -53
 
 	if t.externalLabels.Len() != 0 {
 		b := labels.NewBuilder(ls)
@@ -331,7 +343,11 @@ func (t *transaction) AppendHistogram(_ storage.SeriesRef, ls labels.Labels, atM
 		t.logger.Warn("dropping unsupported gauge histogram datapoint", zap.String("metric_name", metricName), zap.Any("labels", ls))
 	}
 
-	err = curMF.addExponentialHistogramSeries(t.getSeriesRef(ls, curMF.mtype), metricName, ls, atMs, h, fh)
+	if schema == -53 {
+		err = curMF.addNHCBSeries(t.getSeriesRef(ls, curMF.mtype), metricName, ls, atMs, h, fh)
+	} else {
+		err = curMF.addExponentialHistogramSeries(t.getSeriesRef(ls, curMF.mtype), metricName, ls, atMs, h, fh)
+	}
 	if err != nil {
 		t.logger.Warn("failed to add histogram datapoint", zap.Error(err), zap.String("metric_name", metricName), zap.Any("labels", ls))
 	}
@@ -341,11 +357,19 @@ func (t *transaction) AppendHistogram(_ storage.SeriesRef, ls labels.Labels, atM
 
 func (t *transaction) AppendCTZeroSample(_ storage.SeriesRef, ls labels.Labels, atMs, ctMs int64) (storage.SeriesRef, error) {
 	t.addingNativeHistogram = false
+	t.addingNHCB = false
 	return t.setCreationTimestamp(ls, atMs, ctMs)
 }
 
-func (t *transaction) AppendHistogramCTZeroSample(_ storage.SeriesRef, ls labels.Labels, atMs, ctMs int64, _ *histogram.Histogram, _ *histogram.FloatHistogram) (storage.SeriesRef, error) {
+func (t *transaction) AppendHistogramCTZeroSample(_ storage.SeriesRef, ls labels.Labels, atMs, ctMs int64, h *histogram.Histogram, fh *histogram.FloatHistogram) (storage.SeriesRef, error) {
+	var schema int32
+	if h != nil {
+		schema = h.Schema
+	} else if fh != nil {
+		schema = fh.Schema
+	}
 	t.addingNativeHistogram = true
+	t.addingNHCB = schema == -53
 	return t.setCreationTimestamp(ls, atMs, ctMs)
 }
 
@@ -390,7 +414,7 @@ func (t *transaction) setCreationTimestamp(ls labels.Labels, atMs, ctMs int64) (
 	return storage.SeriesRef(seriesRef), nil
 }
 
-func (t *transaction) SetOptions(_ *storage.AppendOptions) {
+func (*transaction) SetOptions(_ *storage.AppendOptions) {
 	// TODO: implement this func
 }
 
@@ -431,6 +455,9 @@ func (t *transaction) getMetrics() (pmetric.Metrics, error) {
 				// Otherwise, use the scope that was provided with the metrics.
 				ils.Scope().SetName(scope.name)
 				ils.Scope().SetVersion(scope.version)
+				if scope.schemaURL != "" {
+					ils.SetSchemaUrl(scope.schemaURL)
+				}
 				// If we got an otel_scope_info metric for that scope, get scope
 				// attributes from it.
 				if scopeAttributes, ok := t.scopeAttributes[rKey]; ok {
@@ -471,6 +498,9 @@ func getScopeID(ls labels.Labels) scopeID {
 		}
 		if lbl.Name == prometheus.ScopeVersionLabelKey {
 			scope.version = lbl.Value
+		}
+		if lbl.Name == prometheus.ScopeSchemaURLLabelKey {
+			scope.schemaURL = lbl.Value
 		}
 	})
 	return scope
@@ -559,17 +589,18 @@ func (t *transaction) Commit() error {
 	return err
 }
 
-func (t *transaction) Rollback() error {
+func (*transaction) Rollback() error {
 	return nil
 }
 
-func (t *transaction) UpdateMetadata(_ storage.SeriesRef, _ labels.Labels, _ metadata.Metadata) (storage.SeriesRef, error) {
+func (*transaction) UpdateMetadata(_ storage.SeriesRef, _ labels.Labels, _ metadata.Metadata) (storage.SeriesRef, error) {
 	// TODO: implement this func
 	return 0, nil
 }
 
 func (t *transaction) AddTargetInfo(key resourceKey, ls labels.Labels) {
 	t.addingNativeHistogram = false
+	t.addingNHCB = false
 	if resource, ok := t.nodeResources[key]; ok {
 		attrs := resource.Attributes()
 		ls.Range(func(lbl labels.Label) {
@@ -583,6 +614,7 @@ func (t *transaction) AddTargetInfo(key resourceKey, ls labels.Labels) {
 
 func (t *transaction) addScopeInfo(key resourceKey, ls labels.Labels) {
 	t.addingNativeHistogram = false
+	t.addingNHCB = false
 	attrs := pcommon.NewMap()
 	scope := scopeID{}
 	ls.Range(func(lbl labels.Label) {
@@ -595,6 +627,10 @@ func (t *transaction) addScopeInfo(key resourceKey, ls labels.Labels) {
 		}
 		if lbl.Name == prometheus.ScopeVersionLabelKey {
 			scope.version = lbl.Value
+			return
+		}
+		if lbl.Name == prometheus.ScopeSchemaURLLabelKey {
+			scope.schemaURL = lbl.Value
 			return
 		}
 		attrs.PutStr(lbl.Name, lbl.Value)

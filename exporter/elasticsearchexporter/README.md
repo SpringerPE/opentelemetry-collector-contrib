@@ -17,7 +17,7 @@
 
 This exporter supports sending logs, metrics, traces and profiles to [Elasticsearch](https://www.elastic.co/elasticsearch).
 
-The Exporter is API-compatible with Elasticsearch 7.17.x and 8.x. Certain features of the exporter,
+The Exporter is API-compatible with Elasticsearch 7.17.x, 8.x, and 9.x. Certain features of the exporter,
 such as the `otel` mapping mode, may require newer versions of Elasticsearch. Limited effort will
 be made to support EOL versions of Elasticsearch -- see https://www.elastic.co/support/eol.
 
@@ -64,11 +64,9 @@ service:
   pipelines:
     logs:
       receivers: [otlp]
-      processors: [batch]
       exporters: [elasticsearch]
     traces:
       receivers: [otlp]
-      processors: [batch]
       exporters: [elasticsearch]
 ```
 
@@ -82,38 +80,26 @@ As a consequence of supporting [confighttp], the Elasticsearch exporter also sup
 The Elasticsearch exporter sets `timeout` (HTTP request timeout) to 90s by default.
 All other defaults are as defined by [confighttp].
 
-### Queuing
+### Queuing and batching
 
-The Elasticsearch exporter supports the common [`sending_queue` settings][exporterhelper]. However, the sending queue is currently disabled by default.
+The Elasticsearch exporter supports the common [`sending_queue` settings][exporterhelper] which
+supports both queueing and batching. The default sending queue is configured to do async batching
+with the following configuration:
 
-### Batching
+```yaml
+sending_queue:
+  enabled: true
+  sizer: requests
+  num_consumers: 10
+  queue_size: 10
+  batch:
+    flush_timeout: 10s
+    min_size: 1e+6 // 1MB
+    max_size: 5e+6 // 5MB
+    sizer: bytes
+```
 
-> [!WARNING]
-> The `batcher` config is experimental and may change without notice.
-
-The Elasticsearch exporter supports the [common `batcher` settings](https://github.com/open-telemetry/opentelemetry-collector/blob/main/exporter/exporterhelper/internal/queue_sender.go).
-
-- `batcher`:
-  - `enabled` (default=unset): Enable batching of requests into 1 or more bulk requests. On a batcher flush, it is possible for a batched request to be translated to more than 1 bulk request due to `flush::bytes`.
-  - `sizer` (default=items): Unit of `min_size` and `max_size`. Currently supports only "items", in the future will also support "bytes".
-  - `min_size` (default=5000): Minimum batch size to be exported to Elasticsearch, measured in units according to `batcher::sizer`.
-  - `max_size` (default=0): Maximum batch size to be exported to Elasticsearch, measured in units according to `batcher::sizer`. To limit bulk request size, configure `flush::bytes` instead. :warning: It is recommended to keep `max_size` as 0 as a non-zero value may lead to broken metrics grouping and indexing rejections.
-  - `flush_timeout` (default=30s): Maximum time of the oldest item spent inside the batcher buffer, aka "max age of batcher buffer". A batcher flush will happen regardless of the size of content in batcher buffer.
-
-By default, the exporter will perform its own buffering and batching, as configured through the
-`flush` config, and `batcher` will be unused. By setting `batcher::enabled` to either `true` or
-`false`, the exporter will not perform any of its own buffering or batching, and the `flush::interval` config
-will be ignored.
-In a future release when the `batcher` config is stable, and has feature parity
-with the exporter's existing `flush` config, it will be enabled by default.
-
-Using the common `batcher` functionality provides several benefits over the default behavior:
- - Combined with a persistent queue, or no queue at all, `batcher` enables at least once delivery.
-   With the default behavior, the exporter will accept data and process it asynchronously,
-   which interacts poorly with queuing.
- - By ensuring the exporter makes requests to Elasticsearch synchronously,
-   client metadata can be passed through to Elasticsearch requests,
-   e.g. by using the [`headers_setter` extension](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/extension/headerssetterextension/README.md).
+The default configurations are chosen to be closer to the defaults with the exporter's previous inbuilt batching feature. The [`exporterhelper` documentation][exporterhelper] provides more details on the `sending_queue` settings.
 
 ### Elasticsearch document routing
 
@@ -125,8 +111,11 @@ where `data_stream.type` is `logs` for log records, `metrics` for data points, a
 In a special case with `mapping::mode: bodymap`, `data_stream.type` field (valid values: `logs`, `metrics`) can be dynamically set from attributes.
 The resulting documents will contain the corresponding `data_stream.*` fields, see restrictions applied to [Data Stream Fields](https://www.elastic.co/guide/en/ecs/current/ecs-data_stream.html).
    1. `data_stream.dataset` or `data_stream.namespace` in attributes (precedence: log record / data point / span attribute > scope attribute > resource attribute)
-   2. Otherwise, if scope name matches regex `/receiver/(\w*receiver)`, `data_stream.dataset` will be capture group #1
-   3. Otherwise, `data_stream.dataset` falls back to `generic` and `data_stream.namespace` falls back to `default`. 
+   2. Otherwise, if a scope attribute with the name `encoding.format` exists and contains a string value, `data_stream.dataset` will be set to this value. 
+
+      Note that while enabled by default, this behaviour is considered experimental. Some encoding extensions set this field (e.g. [awslogsencodingextension](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/encoding/awslogsencodingextension)), but it is not yet part of Semantic Conventions. There is the potential that the name of this routing field evolves as the [discussion progresses in SemConv](https://github.com/open-telemetry/semantic-conventions/issues/2854). 
+   3. Otherwise, if scope name matches regex `/receiver/(\w*receiver)`, `data_stream.dataset` will be capture group #1
+   4. Otherwise, `data_stream.dataset` falls back to `generic` and `data_stream.namespace` falls back to `default`. 
 
 [^3]: See additional handling in [Document routing exceptions for OTel data mode](#document-routing-exceptions-for-otel-data-mode)
 
@@ -306,10 +295,10 @@ This can be configured through the following settings:
 The Elasticsearch exporter uses the [Elasticsearch Bulk API] for indexing documents.
 The behaviour of this bulk indexing can be configured with the following settings:
 
-- `num_workers` (default=runtime.NumCPU()): Number of workers publishing bulk requests concurrently. Note this is not applicable if `batcher::enabled` is `true` or `false`.
-- `flush`: Event bulk indexer buffer flush settings
-  - `bytes` (default=5000000): Write buffer flush size limit before compression. A bulk request will be sent immediately when its buffer exceeds this limit. This value should be much lower than [Elasticsearch's `http.max_content_length`](https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-network.html#http-settings) config to avoid HTTP 413 Entity Too Large error. It is recommended to keep this value under 5MB.
-  - `interval` (default=30s): Write buffer flush time limit.
+- `num_workers` (DEPRECATED, use `sending_queue::num_consumers` instead): This config is deprecated and will be used to configure `sending_queue::num_consumers` if `sending_queue::num_consumers` is not explicitly defined. Number of workers publishing bulk requests concurrently.
+- `flush` (DEPRECATED, use `sending_queue` instead): This config is deprecated and will be used to configure different options for `sending_queue` if `sending_queue` options are not explicitly defined. Event bulk indexer buffer flush settings
+  - `bytes` (DEPRECATED, use `sending_queue::batch::max_size` instead): This config is deprecated and will be used to configure `sending_queue::batch::max_size` if `sending_queue::batch::max_size` is not explicitly defined. See the `sending_queue::batch::max_size` for more details.
+  - `interval` (DEPRECATED, use `sending_queue::batch::flush_timeout` instead): This config is deprecated and will be used to configure `sending_queue::batch::flush_timeout` if `sending_queue::batch::flush_timeout` is not explicitly defined. See the `sending_queue::batch::flush_timeout` for more details.
 - `retry`: Elasticsearch bulk request retry settings
   - `enabled` (default=true): Enable/Disable request retry on error. Failed requests are retried with exponential backoff.
   - `max_requests` (DEPRECATED, use retry::max_retries instead): Number of HTTP request retries including the initial attempt. If used, `retry::max_retries` will be set to `max_requests - 1`.
@@ -317,9 +306,18 @@ The behaviour of this bulk indexing can be configured with the following setting
   - `initial_interval` (default=100ms): Initial waiting time if a HTTP request failed.
   - `max_interval` (default=1m): Max waiting time if a HTTP request failed.
   - `retry_on_status` (default=[429]): Status codes that trigger request or document level retries. Request level retry and document level retry status codes are shared and cannot be configured separately. To avoid duplicates, it defaults to `[429]`.
-
-> [!NOTE]
-> The `flush::interval` config will be ignored when `batcher::enabled` config is explicitly set to `true` or `false`.
+- `sending_queue`: Configures the queueing and batching behaviour. Below are the defaults (which may vary from standard defaults), for full configuration check the [`exporterhelper` docs][exporterhelper].
+  - `enabled` (default=true): Enable queueing and batching behaviour.
+  - `num_consumers` (default=10): Number of consumers that dequeue batches.
+  - `wait_for_result` (default=false): If `true`, blocks incoming requests until processed.
+  - `block_on_overflow` (default=false): If `true`, blocks the request until the queue has space.
+  - `sizer` (default=requests): Measure queueing by requests.
+  - `queue_size` (default=10): Maximum size the queue can accept.
+  - `batch`:
+    - `flush_timeout` (default=10s): Time after which batch is exported irrespective of other settings.
+    - `sizer` (default=bytes): Size batches by bytes. Note that bytes here are based on the pdata model and not on the NDJSON docs that will constitute the bulk indexer requests. To address this discrepancy, the bulk indexers could also flush when their size exceeds the configured max_size due to size of pdata model being smaller than their corresponding NDJSON encoding.
+    - `min_size` (default=1MB): Min size of the batch.
+    - `max_size` (default=5MB): Max size of the batch. This value should be much lower than [Elasticsearch's `http.max_content_length`](https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-network.html#http-settings) config to avoid HTTP 413 Entity Too Large error. It is recommended to keep this value under 5MB.
 
 #### Bulk indexing error response
 
@@ -359,11 +357,18 @@ The Elasticsearch Exporter's own telemetry settings for testing and debugging pu
 
 ### Metadata keys
 
-Metadata keys are a list of client metadata keys that the exporter currently uses to enrich internal telemetry.
+Metadata keys are a list of client metadata keys that the exporter uses to partition batches
+when `sending_queue` is enabled with batching support and enrich internal telemetry.
 
 ⚠️ This is experimental and may change at any time.
 
-- `metadata_keys` (optional): List of metadata keys that will be added to the exporter's telemetry if defined. The config only applies when batcher is used (set to `true` or `false`). The metadata keys are converted to lower case as key lookups for client metadata is case insensitive. This means that the metric produced by internal telemetry will also have the attribute in lower case.
+- `metadata_keys` (optional): List of metadata keys that will be used to partition the data
+into batches if [sending_queue][exporterhelper] is enabled with batching support. With
+batching enabled only these metadata keys are guaranteed to be propagated. The keys will also
+be used to enrich the exporter's internal telemetry if defined. The keys are extracted from
+the client metadata available via the context and added to the internal telemetry as attributes.
+
+NOTE: The metadata keys are converted to lower case as key lookups for client metadata is case insensitive. This means that the metric produced by internal telemetry will also have the attribute in lower case.
 
 ## Exporting metrics
 
@@ -415,7 +420,7 @@ exporters:
 
 When `mode` is set to `ecs`, `elasticsearchexporter` performs conversions for resource-level attributes from their Semantic Conventions (SemConv) names to equivalent Elastic Common Schema (ECS) names.
 
-If the target ECS field name is specified as an empty string (""), the converter will neither convert the SemConv key to the equivalent ECS name nor pass through the SemConv key as-is to become the ECS name.
+If the target ECS field name is specified as an empty string (`""`), the converter will neither convert the SemConv key to the equivalent ECS name nor pass through the SemConv key as-is to become the ECS name.
 
 When "Preserved" is true, the attribute will be preserved in the payload and duplicated as mapped to its ECS equivalent.
 

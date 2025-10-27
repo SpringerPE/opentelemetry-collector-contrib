@@ -11,6 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
+	"github.com/prometheus/otlptranslator"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
@@ -32,7 +33,7 @@ type mockAccumulator struct {
 	scopeAttributes    []pcommon.Map
 }
 
-func (a *mockAccumulator) Accumulate(pmetric.ResourceMetrics) (n int) {
+func (*mockAccumulator) Accumulate(pmetric.ResourceMetrics) (n int) {
 	return 0
 }
 
@@ -55,16 +56,14 @@ func (a *mockAccumulator) Collect() ([]pmetric.Metric, []pcommon.Map, []string, 
 
 func TestConvertInvalidDataType(t *testing.T) {
 	metric := pmetric.NewMetric()
-	c := collector{
-		accumulator: &mockAccumulator{
-			[]pmetric.Metric{metric},
-			pcommon.NewMap(),
-			[]string{"test"},
-			[]string{"1.0.0"},
-			[]string{"http://test.com"},
-			[]pcommon.Map{pcommon.NewMap()},
-		},
-		logger: zap.NewNop(),
+	c := newCollector(&Config{}, zap.NewNop())
+	c.accumulator = &mockAccumulator{
+		[]pmetric.Metric{metric},
+		pcommon.NewMap(),
+		[]string{"test"},
+		[]string{"1.0.0"},
+		[]string{"http://test.com"},
+		[]pcommon.Map{pcommon.NewMap()},
 	}
 
 	_, err := c.convertMetric(metric, pcommon.NewMap(), "test", "1.0.0", "http://test.com", pcommon.NewMap())
@@ -148,9 +147,7 @@ func TestConvertMetric(t *testing.T) {
 			case pmetric.MetricTypeHistogram:
 				metric.SetEmptyHistogram().DataPoints().AppendEmpty()
 			}
-			c := collector{
-				logger: zap.NewNop(),
-			}
+			c := newCollector(&Config{}, zap.NewNop())
 			for k, v := range tt.mapVals {
 				c.metricFamilies.Store(k, v)
 			}
@@ -234,12 +231,10 @@ func TestConvertDoubleHistogramExemplar(t *testing.T) {
 
 	pMap := pcommon.NewMap()
 
-	c := collector{
-		accumulator: &mockAccumulator{
-			metrics:            []pmetric.Metric{metric},
-			resourceAttributes: pMap,
-		},
-		logger: zap.NewNop(),
+	c := newCollector(&Config{}, zap.NewNop())
+	c.accumulator = &mockAccumulator{
+		metrics:            []pmetric.Metric{metric},
+		resourceAttributes: pMap,
 	}
 
 	pbMetric, _ := c.convertDoubleHistogram(metric, pMap, "test", "1.0.0", "http://test.com", pcommon.NewMap())
@@ -275,12 +270,10 @@ func TestConvertMonotonicSumExemplar(t *testing.T) {
 
 	pMap := pcommon.NewMap()
 
-	c := collector{
-		accumulator: &mockAccumulator{
-			metrics:            []pmetric.Metric{metric},
-			resourceAttributes: pMap,
-		},
-		logger: zap.NewNop(),
+	c := newCollector(&Config{}, zap.NewNop())
+	c.accumulator = &mockAccumulator{
+		metrics:            []pmetric.Metric{metric},
+		resourceAttributes: pMap,
 	}
 
 	promMetric, _ := c.convertSum(metric, pMap, "test", "1.0.0", "http://test.com", pcommon.NewMap())
@@ -328,18 +321,19 @@ func TestCollectMetricsLabelSanitize(t *testing.T) {
 	dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
 
 	loggerCore := errorCheckCore{}
-	c := collector{
-		namespace: "test_space",
-		accumulator: &mockAccumulator{
-			[]pmetric.Metric{metric},
-			pcommon.NewMap(),
-			[]string{""},
-			[]string{""},
-			[]string{""},
-			[]pcommon.Map{pcommon.NewMap()},
-		},
-		sendTimestamps: false,
-		logger:         zap.New(&loggerCore),
+
+	c := newCollector(&Config{
+		Namespace:      "test_space",
+		SendTimestamps: false,
+	}, zap.New(&loggerCore))
+	// Replace accumulator with mock for test control
+	c.accumulator = &mockAccumulator{
+		[]pmetric.Metric{metric},
+		pcommon.NewMap(),
+		[]string{""},
+		[]string{""},
+		[]string{""},
+		[]pcommon.Map{pcommon.NewMap()},
 	}
 
 	ch := make(chan prometheus.Metric, 1)
@@ -389,7 +383,7 @@ func TestCollectMetrics(t *testing.T) {
 					dp.SetStartTimestamp(pcommon.NewTimestampFromTime(ts))
 				}
 
-				return
+				return metric
 			},
 		},
 		{
@@ -409,7 +403,7 @@ func TestCollectMetrics(t *testing.T) {
 					dp.SetStartTimestamp(pcommon.NewTimestampFromTime(ts))
 				}
 
-				return
+				return metric
 			},
 		},
 		{
@@ -431,7 +425,7 @@ func TestCollectMetrics(t *testing.T) {
 					dp.SetStartTimestamp(pcommon.NewTimestampFromTime(ts))
 				}
 
-				return
+				return metric
 			},
 		},
 		{
@@ -453,7 +447,7 @@ func TestCollectMetrics(t *testing.T) {
 					dp.SetStartTimestamp(pcommon.NewTimestampFromTime(ts))
 				}
 
-				return
+				return metric
 			},
 		},
 		{
@@ -475,7 +469,7 @@ func TestCollectMetrics(t *testing.T) {
 					dp.SetStartTimestamp(pcommon.NewTimestampFromTime(ts))
 				}
 
-				return
+				return metric
 			},
 		},
 		{
@@ -497,7 +491,7 @@ func TestCollectMetrics(t *testing.T) {
 					dp.SetStartTimestamp(pcommon.NewTimestampFromTime(ts))
 				}
 
-				return
+				return metric
 			},
 		},
 		{
@@ -518,7 +512,7 @@ func TestCollectMetrics(t *testing.T) {
 					dp.SetStartTimestamp(pcommon.NewTimestampFromTime(ts))
 				}
 
-				return
+				return metric
 			},
 		},
 	}
@@ -540,18 +534,19 @@ func TestCollectMetrics(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				ts := time.Now()
 				metric := tt.metric(ts, sendTimestamp)
-				c := collector{
-					namespace: "test_space",
-					accumulator: &mockAccumulator{
-						[]pmetric.Metric{metric},
-						rAttrs,
-						[]string{"test"},
-						[]string{"1.0.0"},
-						[]string{"http://test.com"},
-						[]pcommon.Map{pcommon.NewMap()},
-					},
-					sendTimestamps: sendTimestamp,
-					logger:         zap.NewNop(),
+
+				c := newCollector(&Config{
+					Namespace:      "test_space",
+					SendTimestamps: sendTimestamp,
+				}, zap.NewNop())
+				// Replace accumulator with mock for test control
+				c.accumulator = &mockAccumulator{
+					[]pmetric.Metric{metric},
+					rAttrs,
+					[]string{"test"},
+					[]string{"1.0.0"},
+					[]string{"http://test.com"},
+					[]pcommon.Map{pcommon.NewMap()},
 				}
 
 				ch := make(chan prometheus.Metric, 1)
@@ -652,7 +647,7 @@ func TestAccumulateHistograms(t *testing.T) {
 				if withStartTime {
 					dp.SetStartTimestamp(pcommon.NewTimestampFromTime(ts))
 				}
-				return
+				return metric
 			},
 		},
 	}
@@ -668,17 +663,17 @@ func TestAccumulateHistograms(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				ts := time.Now()
 				metric := tt.metric(ts, sendTimestamp)
-				c := collector{
-					accumulator: &mockAccumulator{
-						[]pmetric.Metric{metric},
-						pcommon.NewMap(),
-						[]string{""},
-						[]string{""},
-						[]string{""},
-						[]pcommon.Map{pcommon.NewMap()},
-					},
-					sendTimestamps: sendTimestamp,
-					logger:         zap.NewNop(),
+				c := newCollector(&Config{
+					SendTimestamps: sendTimestamp,
+				}, zap.NewNop())
+				// Replace accumulator with mock for test control
+				c.accumulator = &mockAccumulator{
+					[]pmetric.Metric{metric},
+					pcommon.NewMap(),
+					[]string{""},
+					[]string{""},
+					[]string{""},
+					[]pcommon.Map{pcommon.NewMap()},
 				}
 
 				ch := make(chan prometheus.Metric, 1)
@@ -766,7 +761,7 @@ func TestAccumulateSummary(t *testing.T) {
 				fillQuantileValue(0.50, 190, sp.QuantileValues().AppendEmpty())
 				fillQuantileValue(0.99, 817, sp.QuantileValues().AppendEmpty())
 
-				return
+				return metric
 			},
 		},
 	}
@@ -782,17 +777,17 @@ func TestAccumulateSummary(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				ts := time.Now()
 				metric := tt.metric(ts, sendTimestamp)
-				c := collector{
-					accumulator: &mockAccumulator{
-						[]pmetric.Metric{metric},
-						pcommon.NewMap(),
-						[]string{""},
-						[]string{""},
-						[]string{""},
-						[]pcommon.Map{pcommon.NewMap()},
-					},
-					sendTimestamps: sendTimestamp,
-					logger:         zap.NewNop(),
+				c := newCollector(&Config{
+					SendTimestamps: sendTimestamp,
+				}, zap.NewNop())
+				// Replace accumulator with mock for test control
+				c.accumulator = &mockAccumulator{
+					[]pmetric.Metric{metric},
+					pcommon.NewMap(),
+					[]string{""},
+					[]string{""},
+					[]string{""},
+					[]pcommon.Map{pcommon.NewMap()},
 				}
 
 				ch := make(chan prometheus.Metric, 1)
@@ -842,4 +837,35 @@ func TestAccumulateSummary(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestNormalizeNamespaceEmpty(t *testing.T) {
+	logger := zap.NewNop()
+	labelNamer := otlptranslator.LabelNamer{UTF8Allowed: false}
+
+	ns := normalizeNamespace("", labelNamer, logger)
+	require.Empty(t, ns, "empty configNamespace should yield empty namespace")
+}
+
+func TestNormalizeNamespaceInvalid(t *testing.T) {
+	logger := zap.NewNop()
+	labelNamer := otlptranslator.LabelNamer{UTF8Allowed: false}
+
+	ns := normalizeNamespace("----", labelNamer, logger)
+	require.Empty(t, ns, "configNamespace with no valid characters should yield empty namespace")
+}
+
+func TestNormalizeNamespaceSanitizes(t *testing.T) {
+	logger := zap.NewNop()
+
+	// With UTF-8 not allowed, chars like '.' should be mapped to '_'
+	labelNamer := otlptranslator.LabelNamer{UTF8Allowed: false}
+	ns1 := normalizeNamespace("my_namespace.1", labelNamer, logger)
+	require.Equal(t, "my_namespace_1", ns1, "UTF-8 not allowed should sanitize '.' to '_'")
+
+	// With UTF-8 allowed, ASCII characters remain unchanged
+	labelNamerUTF8 := otlptranslator.LabelNamer{UTF8Allowed: true}
+	ns2 := normalizeNamespace("my_namespace.1", labelNamerUTF8, logger)
+
+	require.Equal(t, "my_namespace.1", ns2, "UTF-8 allowed should not sanitize ASCII characters")
 }

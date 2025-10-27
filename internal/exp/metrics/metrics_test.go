@@ -49,7 +49,7 @@ func TestMergeMetrics(t *testing.T) {
 	}
 }
 
-func naiveMerge(mdA pmetric.Metrics, mdB pmetric.Metrics) pmetric.Metrics {
+func naiveMerge(mdA, mdB pmetric.Metrics) pmetric.Metrics {
 	for i := 0; i < mdB.ResourceMetrics().Len(); i++ {
 		rm := mdB.ResourceMetrics().At(i)
 
@@ -63,7 +63,7 @@ func naiveMerge(mdA pmetric.Metrics, mdB pmetric.Metrics) pmetric.Metrics {
 func BenchmarkMergeManyIntoSingle(b *testing.B) {
 	benchmarks := []struct {
 		name      string
-		mergeFunc func(mdA pmetric.Metrics, mdB pmetric.Metrics) pmetric.Metrics
+		mergeFunc func(mdA, mdB pmetric.Metrics) pmetric.Metrics
 	}{
 		{
 			name:      "Naive",
@@ -82,7 +82,7 @@ func BenchmarkMergeManyIntoSingle(b *testing.B) {
 			mdB := generateMetrics(b, 10000)
 
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				b.StopTimer()
 				mdA := pmetric.NewMetrics()
 				mdAClean.CopyTo(mdA)
@@ -97,7 +97,7 @@ func BenchmarkMergeManyIntoSingle(b *testing.B) {
 func BenchmarkMergeManyIntoMany(b *testing.B) {
 	benchmarks := []struct {
 		name      string
-		mergeFunc func(mdA pmetric.Metrics, mdB pmetric.Metrics) pmetric.Metrics
+		mergeFunc func(mdA, mdB pmetric.Metrics) pmetric.Metrics
 	}{
 		{
 			name:      "Naive",
@@ -115,7 +115,7 @@ func BenchmarkMergeManyIntoMany(b *testing.B) {
 			mdB := generateMetrics(b, 10000)
 
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				b.StopTimer()
 				mdA := pmetric.NewMetrics()
 				mdAClean.CopyTo(mdA)
@@ -136,7 +136,7 @@ func generateMetrics(t require.TestingT, rmCount int) pmetric.Metrics {
 	timeStamp := pcommon.Timestamp(rand.IntN(256))
 	value := rand.Int64N(256)
 
-	for i := 0; i < rmCount; i++ {
+	for range rmCount {
 		rm := md.ResourceMetrics().AppendEmpty()
 		err := rm.Resource().Attributes().FromRaw(map[string]any{
 			string(conventions.ServiceNameKey): "service-test",

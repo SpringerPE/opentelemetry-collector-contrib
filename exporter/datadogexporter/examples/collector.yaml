@@ -257,8 +257,8 @@ exporters:
       ## @param resource_attributes_as_tags - string - optional - default: false
       ## Set to true to add resource attributes of a metric to its metric tags.
       ## Please note that any of the subset of resource attributes in this
-      ## list https://docs.datadoghq.com/opentelemetry/guide/semantic_mapping/ are 
-      ## converted to datadog conventions and set to to metric tags whether this option
+      ## list https://docs.datadoghq.com/opentelemetry/guide/semantic_mapping/ are
+      ## converted to datadog conventions and set to metric tags whether this option
       ## is enabled or not.
       #
       # resource_attributes_as_tags: false
@@ -461,6 +461,12 @@ exporters:
     ## Logs exporter specific configuration.
     #
     # logs:
+      ## @param endpoint - string - optional
+      ## The host of the Datadog intake server to send logs to.
+      ## If unset, the value is obtained through the `site` parameter in the `api` section.
+      #
+      # endpoint: https://http-intake.logs.datadoghq.com
+
       ## @param dump_payloads - bool - optional
       ## If set to true, payloads will be dumped when logging level is set to debug. Please note that
       ## This may result in an escaping loop if a filelog receiver is watching the collector log output.

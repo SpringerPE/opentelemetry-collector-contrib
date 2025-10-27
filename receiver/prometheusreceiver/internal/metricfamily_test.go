@@ -26,9 +26,9 @@ func (tmc testMetadataStore) GetMetadata(familyName string) (scrape.MetricMetada
 	return lookup, ok
 }
 
-func (tmc testMetadataStore) ListMetadata() []scrape.MetricMetadata { return nil }
+func (testMetadataStore) ListMetadata() []scrape.MetricMetadata { return nil }
 
-func (tmc testMetadataStore) SizeMetadata() int { return 0 }
+func (testMetadataStore) SizeMetadata() int { return 0 }
 
 func (tmc testMetadataStore) LengthMetadata() int {
 	return len(tmc)
@@ -284,6 +284,146 @@ func TestMetricGroupData_toDistributionUnitTest(t *testing.T) {
 			metric := sl.At(0)
 			require.Equal(t, mc[tt.metricName].Help, metric.Description(), "Expected help metadata in metric description")
 			require.Equal(t, mc[tt.metricName].Unit, metric.Unit(), "Expected unit metadata in metric")
+
+			hdpL := metric.Histogram().DataPoints()
+			require.Equal(t, 1, hdpL.Len(), "Exactly one point expected")
+			got := hdpL.At(0)
+			want := tt.want()
+			require.Equal(t, want, got, "Expected the points to be equal")
+		})
+	}
+}
+
+func TestMetricGroupData_toNHCBDistributionUnitTest(t *testing.T) {
+	tests := []struct {
+		name                string
+		metricName          string
+		labels              labels.Labels
+		integerHistogram    *histogram.Histogram
+		floatHistogram      *histogram.FloatHistogram
+		want                func() pmetric.HistogramDataPoint
+		wantErr             bool
+		intervalStartTimeMs int64
+	}{
+		{
+			name:                "integer NHCB",
+			metricName:          "histogram",
+			intervalStartTimeMs: 11,
+			labels:              labels.FromMap(map[string]string{"a": "A", "b": "B"}),
+			integerHistogram: &histogram.Histogram{
+				Schema:          -53,
+				Count:           180,
+				Sum:             100.5,
+				CustomValues:    []float64{1.0, 2.0, 5.0, 10.0},
+				PositiveSpans:   []histogram.Span{{Offset: 0, Length: 5}},
+				PositiveBuckets: []int64{10, 15, 20, 5, 0},
+			},
+			want: func() pmetric.HistogramDataPoint {
+				point := pmetric.NewHistogramDataPoint()
+				point.SetCount(180)
+				point.SetSum(100.5)
+				point.SetTimestamp(pcommon.Timestamp(11 * time.Millisecond))
+				point.SetStartTimestamp(pcommon.Timestamp(11 * time.Millisecond))
+				point.ExplicitBounds().FromRaw([]float64{1.0, 2.0, 5.0, 10.0})
+				point.BucketCounts().FromRaw([]uint64{10, 25, 45, 50, 50})
+				attributes := point.Attributes()
+				attributes.PutStr("a", "A")
+				attributes.PutStr("b", "B")
+				return point
+			},
+		},
+		{
+			name:                "integer NHCB that is stale",
+			metricName:          "histogram",
+			intervalStartTimeMs: 11,
+			labels:              labels.FromMap(map[string]string{"a": "A", "b": "B"}),
+			integerHistogram: &histogram.Histogram{
+				Schema:       -53,
+				Sum:          math.Float64frombits(value.StaleNaN),
+				CustomValues: []float64{1.0, 2.0, 5.0, 10.0},
+				Count:        0,
+			},
+			want: func() pmetric.HistogramDataPoint {
+				point := pmetric.NewHistogramDataPoint()
+				point.SetTimestamp(pcommon.Timestamp(11 * time.Millisecond))
+				point.SetFlags(pmetric.DefaultDataPointFlags.WithNoRecordedValue(true))
+				point.SetStartTimestamp(pcommon.Timestamp(11 * time.Millisecond))
+				point.ExplicitBounds().FromRaw([]float64{1.0, 2.0, 5.0, 10.0})
+				point.BucketCounts().FromRaw([]uint64{0, 0, 0, 0, 0})
+				attributes := point.Attributes()
+				attributes.PutStr("a", "A")
+				attributes.PutStr("b", "B")
+				return point
+			},
+		},
+		{
+			name:                "float NHCB",
+			metricName:          "histogram",
+			intervalStartTimeMs: 12,
+			labels:              labels.FromMap(map[string]string{"a": "A"}),
+			floatHistogram: &histogram.FloatHistogram{
+				Schema:          -53,
+				Count:           50.0,
+				Sum:             125.25,
+				CustomValues:    []float64{0.5, 2.0},
+				PositiveBuckets: []float64{15.0, 20.0, 15.0},
+				PositiveSpans:   []histogram.Span{{Offset: 0, Length: 3}},
+			},
+			want: func() pmetric.HistogramDataPoint {
+				point := pmetric.NewHistogramDataPoint()
+				point.SetCount(50)
+				point.SetSum(125.25)
+				point.SetTimestamp(pcommon.Timestamp(12 * time.Millisecond))
+				point.SetStartTimestamp(pcommon.Timestamp(12 * time.Millisecond))
+				point.ExplicitBounds().FromRaw([]float64{0.5, 2.0})
+				point.BucketCounts().FromRaw([]uint64{15, 20, 15})
+				attributes := point.Attributes()
+				attributes.PutStr("a", "A")
+				return point
+			},
+		},
+		{
+			name:                "integer NHCB with negative boundaries",
+			metricName:          "histogram",
+			intervalStartTimeMs: 30,
+			labels:              labels.FromMap(map[string]string{"a": "A"}),
+			integerHistogram: &histogram.Histogram{
+				Schema:          -53,
+				Count:           16,
+				Sum:             10.0,
+				CustomValues:    []float64{-5.0, 0.0, 5.0},
+				PositiveSpans:   []histogram.Span{{Offset: 0, Length: 4}},
+				PositiveBuckets: []int64{5, 5, 5, 1},
+			},
+			want: func() pmetric.HistogramDataPoint {
+				point := pmetric.NewHistogramDataPoint()
+				point.SetCount(16)
+				point.SetSum(10.0)
+				point.SetTimestamp(pcommon.Timestamp(30 * time.Millisecond))
+				point.SetStartTimestamp(pcommon.Timestamp(30 * time.Millisecond))
+				point.ExplicitBounds().FromRaw([]float64{-5.0, 0.0, 5.0})
+				point.BucketCounts().FromRaw([]uint64{5, 10, 15, 16})
+				point.Attributes().PutStr("a", "A")
+				return point
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mp := newMetricFamily(tt.metricName, mc, zap.NewNop())
+			sRef, _ := getSeriesRef(nil, tt.labels, mp.mtype)
+
+			err := mp.addNHCBSeries(sRef, tt.metricName, tt.labels, tt.intervalStartTimeMs, tt.integerHistogram, tt.floatHistogram)
+			require.NoError(t, err)
+
+			require.Len(t, mp.groups, 1)
+
+			sl := pmetric.NewMetricSlice()
+			mp.appendMetric(sl, false)
+
+			require.Equal(t, 1, sl.Len(), "Exactly one metric expected")
+			metric := sl.At(0)
 
 			hdpL := metric.Histogram().DataPoints()
 			require.Equal(t, 1, hdpL.Len(), "Exactly one point expected")

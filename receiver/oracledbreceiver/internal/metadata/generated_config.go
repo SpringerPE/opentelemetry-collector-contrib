@@ -44,6 +44,7 @@ type MetricsConfig struct {
 	OracledbExecutions                            MetricConfig `mapstructure:"oracledb.executions"`
 	OracledbHardParses                            MetricConfig `mapstructure:"oracledb.hard_parses"`
 	OracledbLogicalReads                          MetricConfig `mapstructure:"oracledb.logical_reads"`
+	OracledbLogons                                MetricConfig `mapstructure:"oracledb.logons"`
 	OracledbParallelOperationsDowngraded1To25Pct  MetricConfig `mapstructure:"oracledb.parallel_operations_downgraded_1_to_25_pct"`
 	OracledbParallelOperationsDowngraded25To50Pct MetricConfig `mapstructure:"oracledb.parallel_operations_downgraded_25_to_50_pct"`
 	OracledbParallelOperationsDowngraded50To75Pct MetricConfig `mapstructure:"oracledb.parallel_operations_downgraded_50_to_75_pct"`
@@ -120,6 +121,9 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		OracledbLogicalReads: MetricConfig{
 			Enabled: true,
+		},
+		OracledbLogons: MetricConfig{
+			Enabled: false,
 		},
 		OracledbParallelOperationsDowngraded1To25Pct: MetricConfig{
 			Enabled: false,
@@ -272,6 +276,7 @@ func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
 type ResourceAttributesConfig struct {
 	HostName             ResourceAttributeConfig `mapstructure:"host.name"`
 	OracledbInstanceName ResourceAttributeConfig `mapstructure:"oracledb.instance.name"`
+	ServiceInstanceID    ResourceAttributeConfig `mapstructure:"service.instance.id"`
 }
 
 func DefaultResourceAttributesConfig() ResourceAttributesConfig {
@@ -280,6 +285,9 @@ func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 			Enabled: true,
 		},
 		OracledbInstanceName: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		ServiceInstanceID: ResourceAttributeConfig{
 			Enabled: true,
 		},
 	}
