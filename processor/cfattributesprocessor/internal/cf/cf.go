@@ -242,7 +242,25 @@ func (cfCli *Client) GetAppLifecycle(appID string) (string, []string, string, er
 	if err != nil {
 		return "", []string{}, "", err
 	}
-	return app.Lifecycle.Type, app.Lifecycle.BuildpackData.Buildpacks, app.Lifecycle.BuildpackData.Stack, nil
+	// The Lifecycle.Data field is already populated by the CF client's UnmarshalJSON method
+	// when it fetches the app from the API. We just need to type assert to the correct type.
+	switch app.Lifecycle.Type {
+	case "buildpack":
+		if buildpackData, ok := app.Lifecycle.Data.(*cfresource.BuildpackLifecycle); ok {
+			return app.Lifecycle.Type, buildpackData.Buildpacks, buildpackData.Stack, nil
+		}
+	case "cnb": // Cloud Native Buildpacks
+		if cnbData, ok := app.Lifecycle.Data.(*cfresource.CNBLifecycle); ok {
+			return app.Lifecycle.Type, cnbData.Buildpacks, cnbData.Stack, nil
+		}
+	case "docker":
+		// Docker lifecycle has image instead of buildpacks/stack
+		if dockerData, ok := app.Lifecycle.Data.(*cfresource.DockerLifecycle); ok {
+			return app.Lifecycle.Type, []string{}, dockerData.Image, nil
+		}
+	}
+	// For unknown lifecycle types or if type assertion fails
+	return app.Lifecycle.Type, []string{}, "", nil
 }
 
 func (cfCli *Client) getSpace(spaceID string) (*cfresource.Space, error) {

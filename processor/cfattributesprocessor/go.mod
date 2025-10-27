@@ -4,8 +4,9 @@ go 1.23.0
 
 require (
 	github.com/allegro/bigcache/v3 v3.1.0
-	github.com/cloudfoundry/go-cfclient/v3 v3.0.0-alpha.10
-	github.com/stretchr/testify v1.10.0
+	github.com/cloudfoundry/go-cfclient/v3 v3.0.0-alpha.15
+	github.com/google/go-cmp v0.6.0
+	github.com/stretchr/testify v1.11.0
 	go.opentelemetry.io/collector/component v0.120.0
 	go.opentelemetry.io/collector/component/componenttest v0.120.0
 	go.opentelemetry.io/collector/confmap v1.26.0
@@ -52,7 +53,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/oauth2 v0.27.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241202173237-19429a94021a // indirect
@@ -60,3 +61,5 @@ require (
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/test/debug => /tmp
