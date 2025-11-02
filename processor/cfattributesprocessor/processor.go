@@ -155,7 +155,7 @@ func (cfap *cfAttributesProcessor) processAppID(ctx context.Context, resource pc
 					resource.Attributes().PutStr(cfAttrNSPrefix+"app.annotations."+k, *v)
 				}
 			} else {
-				cfap.logger.Error(err.Error())
+				cfap.logger.Error("Failed to get app metadata", zap.String("appID", appID), zap.Error(err))
 				return false, err
 			}
 		}
@@ -170,9 +170,16 @@ func (cfap *cfAttributesProcessor) processAppID(ctx context.Context, resource pc
 				return false, err
 			}
 			resource.Attributes().PutStr(cfAttrNSPrefix+"app.lifecyle.type", lcType)
-			resource.Attributes().PutStr(cfAttrNSPrefix+"app.lifecyle.stack", stack)
-			for i, v := range buildpacks {
-				resource.Attributes().PutStr(cfAttrNSPrefix+"app.lifecyle.buildpacks."+strconv.Itoa(i), v)
+			switch lcType {
+			case "docker":
+				resource.Attributes().PutStr(cfAttrNSPrefix+"app.lifecyle.image", stack)
+			default:
+				if stack != "" {
+					resource.Attributes().PutStr(cfAttrNSPrefix+"app.lifecyle.stack", stack)
+				}
+				for i, v := range buildpacks {
+					resource.Attributes().PutStr(cfAttrNSPrefix+"app.lifecyle.buildpacks."+strconv.Itoa(i), v)
+				}
 			}
 		}
 		if cfap.config.Extract.AppDates {
